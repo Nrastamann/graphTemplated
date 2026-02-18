@@ -5,57 +5,93 @@
 #include <iostream>
 #include <limits>
 #include <ostream>
+#include <type_traits>
+#include <vector>
 
 namespace GraphFirst
 {
+constexpr size_t kNodeAmountResizable{ 0 };
 using node_value_type = int16_t;
 constexpr node_value_type node_value_max =
 	std::numeric_limits<node_value_type>::max();
 
-template <bool isWeighted, typename value_type = node_value_type>
-class graphTraits {};
-
-template <typename value_type> class graphTraits<true, value_type> {
-    public:
-	template <size_t N> using container_inside = std::bitset<N>;
+template <bool isWeighted, typename value_type, size_t N>
+class graphContainerTrait {
+	using Container = std::array<std::array<value_type, N>, N>;
+	using NamesContainer = std::array<std::string, N>;
+};
+template <bool isWeighted, typename value_type>
+class graphContainerTrait<isWeighted, value_type, kNodeAmountResizable> {
+	using Container = std::vector<std::vector<value_type> >;
+	using NamesContainer = std::vector<std::string>;
+};
+template <typename value_type, size_t N>
+class graphContainerTrait<false, value_type, N> {
+	using Container = std::array<std::bitset<N>, N>;
+	using NamesContainer = std::vector<std::string>;
 };
 
-template <typename value_type> class graphTraits<false, value_type> {
-    public:
-	template <size_t N>
-	using container_inside = typename std::array<value_type, N>;
+template <bool isOriented, typename value_type, size_t NodeAmount>
+class IncidenceMatrixType {};
+template <typename value_type, size_t NodeAmount>
+class IncidenceMatrixType<true, value_type, NodeAmount> {
+	using IncidenceMatrix = std::array<std::vector<value_type>, NodeAmount>;
+};
+template <typename value_type, size_t NodeAmount>
+class IncidenceMatrixType<false, value_type, NodeAmount> {
+	using IncidenceMatrix = std::array<std::vector<bool>, NodeAmount>;
+};
+template <typename value_type>
+class IncidenceMatrixType<false, value_type, kNodeAmountResizable> {
+	using IncidenceMatrix = std::vector<std::vector<value_type> >;
+};
+template <typename value_type>
+class IncidenceMatrixType<true, value_type, kNodeAmountResizable> {
+	using IncidenceMatrix = std::vector<std::vector<bool> >;
 };
 
 template <size_t NodeAmount, bool isOriented = true, bool isWeighted = true,
 	  typename value_type = node_value_type>
-class AdjacencyMatrix {
-    public:
-	using AdjacencyMatrixSelf =
-		AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>;
-
+class AdjacencyMatrix
+	: graphContainerTrait<isWeighted, value_type, NodeAmount> {
     private:
-	using ContainerInside = typename graphTraits<
-		isWeighted, value_type>::template container_inside<NodeAmount>;
+    public:
+	using signed_value_type = std::make_signed_t<value_type>;
+	using unsigned_value_type = std::make_unsigned_t<value_type>;
 
-	using matrix_type = std::array<ContainerInside, NodeAmount>;
-
-	using IntersectionMatrixRight =
-		AdjacencyMatrix<NodeAmount + 1, isOriented, isWeighted,
-				value_type>;
+	using ContainerType =
+		typename graphContainerTrait<isWeighted, value_type,
+					     NodeAmount>::Container;
+	using NameContainerType =
+		typename graphContainerTrait<isWeighted, value_type,
+					     NodeAmount>::NamesContainer;
 
 	using VisitedMatrix = std::array<bool, NodeAmount>;
 	using WeightsMatrix = std::array<value_type, NodeAmount>;
-	using IncidenceMatrix =
-		std::array<std::array<value_type, 0>, NodeAmount>;
 
-	using DegreeMatrix = matrix_type;
-	using ReachabilityMatrix = matrix_type;
-	using DistanceMatrix = matrix_type;
-	using KirchoffMatrix = matrix_type;
+	using IncidenceMatrix =
+		typename IncidenceMatrixType<isOriented, value_type,
+					     NodeAmount>::IncidenceMatrix;
+
+	using DegreeMatrix =
+		std::array<std::array<unsigned_value_type, NodeAmount>,
+			   NodeAmount>;
+	using ReachabilityMatrix =
+		std::array<std::bitset<NodeAmount>, NodeAmount>;
+	using DistanceMatrix =
+		std::array<std::array<signed_value_type, NodeAmount>,
+			   NodeAmount>;
+	using KirchoffMatrix =
+		std::array<std::array<signed_value_type, NodeAmount>,
+			   NodeAmount>;
 
     public:
-	friend std::ostream &operator<<(std::ostream &out,
-					const AdjacencyMatrixSelf &matrix);
+	template <size_t NodeAmountArg, bool isOrientedArg, bool isWeightedArg,
+		  typename value_type_arg>
+	friend std::ostream &operator<<(
+		std::ostream &out,
+		const AdjacencyMatrix<NodeAmountArg, isOrientedArg,
+				      isWeightedArg, value_type_arg> &matrix);
 
 	void add_edge(size_t firstNode, size_t secondNode,
 		      value_type value = 1);
@@ -67,22 +103,16 @@ class AdjacencyMatrix {
 	DegreeMatrix getDegreeMatrix();
 	ReachabilityMatrix getReachabilityMatrix();
 	DistanceMatrix getDistanceMatrix();
-
-	matrix_type &get_matrix()
-	{
-		return matrix;
-	}
-	const matrix_type &get_cmatrix() const
-	{
-		return matrix;
-	}
-
 	KirchoffMatrix getKirchoffMatrix();
-	AdjacencyMatrixSelf
-	GraphIntersection(const IntersectionMatrixRight &matrix_second,
-			  size_t removed_vertex);
-	AdjacencyMatrix<NodeAmount - 1, isOriented, isWeighted, value_type>
-	PullEdge(size_t first_node, size_t node_to_pull);
+
+	ContainerType &get_matrix()
+	{
+		return matrix;
+	}
+	const ContainerType &get_cmatrix() const
+	{
+		return matrix;
+	}
 
 	AdjacencyMatrix() = default;
 
@@ -93,67 +123,102 @@ class AdjacencyMatrix {
 	AdjacencyMatrix &operator=(AdjacencyMatrix &&) = default;
 
     private:
-	matrix_type matrix = { 0 };
-
-	value_type djkstra(size_t first_node_index, size_t second_node_index);
+	ContainerType matrix = { 0 };
+	NameContainerType matrix_names = { 0 };
+	size_t countEdges();
+	signed_value_type djkstra(size_t first_node_index,
+				  size_t second_node_index);
 	bool isReachable(size_t first_node, size_t second_node);
 };
 
-template <typename ContainerInside, size_t NodeAmount>
-std::ostream &operator<<(std::ostream &out,
-			 const std::array<ContainerInside, NodeAmount> &matrix)
-{
-	size_t iSize = matrix.size();
-	size_t jSize = matrix[0].size();
-	out << "\t|";
-	for (size_t i = 0; i < jSize; ++i) {
-		out << i + 1 << '\t';
+template <bool isOriented, bool isWeighted, typename value_type>
+class AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
+	: graphContainerTrait<isWeighted, value_type, kNodeAmountResizable> {
+    public:
+	using signed_value_type = std::make_signed_t<value_type>;
+	using unsigned_value_type = std::make_unsigned_t<value_type>;
+
+	using ContainerType =
+		typename graphContainerTrait<isWeighted, value_type,
+					     kNodeAmountResizable>::Container;
+	using NameContainerType = typename graphContainerTrait<
+		isWeighted, value_type, kNodeAmountResizable>::NamesContainer;
+
+	using VisitedMatrix = std::vector<bool>;
+	using WeightsMatrix = std::vector<value_type>;
+
+	using IncidenceMatrix = typename IncidenceMatrixType<
+		isOriented, value_type, kNodeAmountResizable>::IncidenceMatrix;
+
+	using DegreeMatrix = std::vector<std::vector<unsigned_value_type> >;
+	using ReachabilityMatrix =
+		std::vector<std::vector<unsigned_value_type> >;
+	using DistanceMatrix = std::vector<std::vector<signed_value_type> >;
+	using KirchoffMatrix = std::vector<std::vector<signed_value_type> >;
+
+    public:
+	friend std::ostream &operator<<(std::ostream &out,
+					const AdjacencyMatrix &matrix);
+
+	void add_edge(size_t firstNode, size_t secondNode,
+		      value_type value = 1);
+	void remove_edge(size_t firstNode, size_t secondNode);
+	void clear_matrix();
+	void connect_all(value_type value = 1);
+
+	void remove_vertex(size_t vertex_index);
+
+	IncidenceMatrix getIncidenceMatrix();
+	DegreeMatrix getDegreeMatrix();
+	ReachabilityMatrix getReachabilityMatrix();
+	DistanceMatrix getDistanceMatrix();
+	KirchoffMatrix getKirchoffMatrix();
+
+	template <size_t NodeAmountSend>
+	AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
+	GraphIntersection(
+		const AdjacencyMatrix<NodeAmountSend, isOriented, isWeighted,
+				      value_type> &SecondMatrix)
+	{
+		AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted,
+				value_type>
+			result;
+
+		return result;
+	}
+	AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
+	PullEdge(size_t first_node, size_t node_to_pull)
+	{
+		AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted,
+				value_type>
+			result_matrix;
+
+		return result_matrix;
+	}
+	ContainerType &get_matrix()
+	{
+		return matrix;
+	}
+	const ContainerType &get_cmatrix() const
+	{
+		return matrix;
 	}
 
-	out << '\n' << "\t|";
-	for (size_t i = 0; i < jSize; ++i) {
-		out << "=======";
-	}
+	AdjacencyMatrix() = default;
 
-	out << '\n';
+	AdjacencyMatrix(const AdjacencyMatrix &) = default;
+	AdjacencyMatrix(AdjacencyMatrix &&) = default;
 
-	for (size_t i = 0; i < iSize; ++i) {
-		out << i + 1 << "\t|";
-		for (size_t j = 0; j < jSize; ++j) {
-			out << matrix[i][j] << '\t';
-		}
-		out << '\n';
-	}
-	return out;
-}
+	AdjacencyMatrix &operator=(const AdjacencyMatrix &) = default;
+	AdjacencyMatrix &operator=(AdjacencyMatrix &&) = default;
 
-template <size_t NodeAmount, bool isOriented, bool isWeighted,
-	  typename value_type>
-std::ostream &operator<<(std::ostream &out,
-			 const AdjacencyMatrix<NodeAmount, isOriented,
-					       isWeighted, value_type> &matrix)
-{
-	size_t iSize = matrix.matrix.size();
-	size_t jSize = matrix.matrix[0].size();
-	out << "\t|";
-	for (size_t i = 0; i < iSize; ++i) {
-		out << i + 1 << '\t';
-	}
+    private:
+	ContainerType matrix = { 0 };
+	NameContainerType matrix_names = { 0 };
 
-	out << '\n' << "\t|";
-	for (size_t i = 0; i < iSize; ++i) {
-		out << "=======";
-	}
-
-	out << '\n';
-
-	for (size_t i = 0; i < iSize; ++i) {
-		out << i + 1 << "\t|";
-		for (size_t j = 0; j < jSize; ++j) {
-			out << matrix.matrix[i][j] << '\t';
-		}
-		out << '\n';
-	}
-	return out;
-}
+	size_t countEdges();
+	signed_value_type djkstra(size_t first_node_index,
+				  size_t second_node_index);
+	bool isReachable(size_t first_node, size_t second_node);
+};
 };

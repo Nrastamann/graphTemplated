@@ -1,8 +1,8 @@
 #include <array>
 #include "graph.hpp"
 #include <cstddef>
-#include <cstdint>
 #include <iostream>
+#include <numeric>
 #include <ostream>
 
 static size_t interest = 0;
@@ -11,12 +11,37 @@ static constexpr size_t kNodeAmountSecond{ 8 };
 static constexpr size_t kEdgesAmount{ 9 };
 namespace GraphFirst
 {
-template <size_t NodeAmount, bool isOriented, bool isWeighted,
-	  typename value_type>
-std::ostream &operator<<(
-	std::ostream &out,
-	const typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-				       value_type>::AdjacencyMatrixSelf &matrix);
+
+template <size_t NodeAmount_2, bool isOriented, bool isWeighted,
+	  typename value_type_2>
+std::ostream &
+operator<<(std::ostream &out,
+	   const GraphFirst::AdjacencyMatrix<NodeAmount_2, isOriented,
+					     isWeighted, value_type_2> &matrix)
+{
+	size_t iSize = matrix.matrix.size();
+	size_t jSize = matrix.matrix[0].size();
+	out << "\t|";
+	for (size_t i = 0; i < iSize; ++i) {
+		out << i + 1 << '\t';
+	}
+
+	out << '\n' << "\t|";
+	for (size_t i = 0; i < iSize; ++i) {
+		out << "=======";
+	}
+
+	out << '\n';
+
+	for (size_t i = 0; i < iSize; ++i) {
+		out << i + 1 << "\t|";
+		for (size_t j = 0; j < jSize; ++j) {
+			out << matrix.matrix[i][j] << '\t';
+		}
+		out << '\n';
+	}
+	return out;
+};
 
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
@@ -70,6 +95,27 @@ void AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 		}
 	}
 }
+template <size_t NodeAmount, bool isOriented, bool isWeighted,
+	  typename value_type>
+size_t
+AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::countEdges()
+{
+	size_t count = 0;
+	if constexpr (!(isWeighted || NodeAmount == kNodeAmountResizable)) {
+		for (auto &i : matrix) {
+			count += i.count();
+		}
+
+		return count;
+	}
+	for (auto &i : matrix) {
+		count += std::accumulate(i.begin(), i.end(),
+					 [](value_type a, value_type b) {
+						 return a + b;
+					 });
+	}
+	return count;
+}
 
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
@@ -79,10 +125,15 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 		value_type>::getIncidenceMatrix()
 {
 	size_t iSize = matrix.size();
-	size_t jSize = matrix[0].size();
-
+	size_t jSize = countEdges();
 	IncidenceMatrix result_matrix;
+
+	if constexpr (NodeAmount == kNodeAmountResizable) {
+		result_matrix.resize(iSize);
+	}
+
 	for (size_t i = 0; i < iSize; ++i) {
+		result_matrix[i].resize(jSize);
 		for (size_t j = 0; j < jSize; ++j) {
 			result_matrix[i][j] =
 				matrix[i][j] == 0 && matrix[j][i] != 0 ?
@@ -105,7 +156,13 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 	size_t jSize = matrix[0].size();
 
 	DegreeMatrix result_matrix = { 0 };
+	if constexpr (NodeAmount == kNodeAmountResizable) {
+		result_matrix.resize(iSize);
+	}
 	for (size_t i = 0; i < iSize; ++i) {
+		if constexpr (NodeAmount == kNodeAmountResizable) {
+			result_matrix[i].resize(jSize);
+		}
 		for (size_t j = 0; j < jSize; ++j) {
 			if (matrix[i][j] != 0 || matrix[j][i] != 0) {
 				result_matrix[i][i] +=
@@ -128,7 +185,13 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 	size_t jSize = matrix[0].size();
 
 	ReachabilityMatrix result_matrix = { 0 };
+	if constexpr (NodeAmount == kNodeAmountResizable) {
+		result_matrix.resize(iSize);
+	}
 	for (size_t i = 0; i < iSize; ++i) {
+		if constexpr (NodeAmount == kNodeAmountResizable) {
+			result_matrix[i].resize(jSize);
+		}
 		for (size_t j = 0; j < jSize; ++j) {
 			result_matrix[i][j] = i == j ? 1 : isReachable(i, j);
 		}
@@ -148,7 +211,13 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 	size_t jSize = matrix[0].size();
 
 	DistanceMatrix result_matrix = { 0 };
+	if constexpr (NodeAmount == kNodeAmountResizable) {
+		result_matrix.resize(iSize);
+	}
 	for (size_t i = 0; i < iSize; ++i) {
+		if constexpr (NodeAmount == kNodeAmountResizable) {
+			result_matrix[i].resize(jSize);
+		}
 		for (size_t j = 0; j < jSize; ++j) {
 			result_matrix[i][j] = i == j ? 0 : djkstra(i, j);
 		}
@@ -168,7 +237,13 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 	size_t jSize = matrix[0].size();
 
 	KirchoffMatrix result_matrix = { 0 };
+	if constexpr (NodeAmount == kNodeAmountResizable) {
+		result_matrix.resize(iSize);
+	}
 	for (size_t i = 0; i < iSize; ++i) {
+		if constexpr (NodeAmount == kNodeAmountResizable) {
+			result_matrix[i].resize(jSize);
+		}
 		for (size_t j = 0; j < jSize; ++j) {
 			if (matrix[i][j] != 0 || matrix[j][i] != 0) {
 				result_matrix[i][i] +=
@@ -188,82 +263,7 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-			 value_type>::AdjacencyMatrixSelf
-AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-		value_type>::GraphIntersection(const IntersectionMatrixRight
-						       &matrix_second,
-					       size_t removed_vertex)
-{
-	AdjacencyMatrixSelf result;
-
-	auto &working_matrix = result.get_matrix();
-	auto &working_matrix_second = matrix_second.cget_matrix();
-	size_t iSmall = 0;
-	size_t jSmall = 0;
-
-	for (size_t i = 0; i < NodeAmount + 1; ++i) {
-		if (i == removed_vertex)
-			continue;
-		for (size_t j = 0; j < NodeAmount + 1; ++j) {
-			if (j == removed_vertex)
-				continue;
-
-			if (matrix[iSmall][jSmall] ==
-				    working_matrix_second[i][j] &&
-			    matrix[iSmall][jSmall] == 1) {
-				working_matrix[iSmall][jSmall] = 1;
-				working_matrix[jSmall][iSmall] = 1;
-			}
-			jSmall++;
-		}
-		jSmall = 0;
-		iSmall++;
-	}
-	return result;
-}
-
-template <size_t NodeAmount, bool isOriented, bool isWeighted,
-	  typename value_type>
-AdjacencyMatrix<NodeAmount - 1, isOriented, isWeighted, value_type>
-AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::PullEdge(
-	size_t first_node, size_t node_to_pull)
-{
-	AdjacencyMatrix<NodeAmount - 1, isOriented, isWeighted, value_type>
-		result_matrix;
-	auto &working_matrix = result_matrix.get_matrix();
-
-	size_t iSmall = 0;
-	size_t jSmall = 0;
-	for (size_t i = 0; i < NodeAmount; ++i) {
-		if (i == node_to_pull)
-			continue;
-		for (size_t j = 0; j < NodeAmount; ++j) {
-			if (j == node_to_pull) {
-				continue;
-			}
-			working_matrix[iSmall][jSmall++] = matrix[i][j];
-		}
-		iSmall++;
-		jSmall = 0;
-	}
-
-	iSmall = 0;
-	for (size_t i = 0; i < NodeAmount; ++i) {
-		if (i == node_to_pull)
-			continue;
-		if (matrix[node_to_pull][i] == 1) {
-			working_matrix[first_node][iSmall] = 1;
-			working_matrix[iSmall][first_node] = 1;
-		}
-		++iSmall;
-	}
-
-	return result_matrix;
-}
-
-template <size_t NodeAmount, bool isOriented, bool isWeighted,
-	  typename value_type>
-value_type
+			 value_type>::signed_value_type
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::djkstra(
 	size_t first_node_index, size_t second_node_index)
 {
@@ -319,9 +319,9 @@ bool AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 }
 };
 
-template <typename ContainerInside, size_t NodeAmount>
+template <typename ContainerInside, size_t CNodeAmount>
 std::ostream &operator<<(std::ostream &out,
-			 const std::array<ContainerInside, NodeAmount> &matrix)
+			 const std::array<ContainerInside, CNodeAmount> &matrix)
 {
 	size_t iSize = matrix.size();
 	size_t jSize = matrix[0].size();
@@ -347,36 +347,6 @@ std::ostream &operator<<(std::ostream &out,
 	return out;
 }
 
-template <size_t NodeAmount, bool isOriented, bool isWeighted,
-	  typename value_type>
-std::ostream &
-operator<<(std::ostream &out,
-	   const GraphFirst::AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-					     value_type> &matrix)
-{
-	size_t iSize = matrix.matrix.size();
-	size_t jSize = matrix.matrix[0].size();
-	out << "\t|";
-	for (size_t i = 0; i < iSize; ++i) {
-		out << i + 1 << '\t';
-	}
-
-	out << '\n' << "\t|";
-	for (size_t i = 0; i < iSize; ++i) {
-		out << "=======";
-	}
-
-	out << '\n';
-
-	for (size_t i = 0; i < iSize; ++i) {
-		out << i + 1 << "\t|";
-		for (size_t j = 0; j < jSize; ++j) {
-			out << matrix.matrix[i][j] << '\t';
-		}
-		out << '\n';
-	}
-	return out;
-};
 constexpr size_t kTabSignsAmount{ 8 };
 void draw_name(std::string_view str, size_t value)
 {
@@ -391,7 +361,8 @@ void draw_name(std::string_view str, size_t value)
 
 int main()
 {
-	GraphFirst::AdjacencyMatrix<kNodeAmount, true, false> matrix_oriented;
+	GraphFirst::AdjacencyMatrix<kNodeAmount, false, false, uint16_t>
+		matrix_oriented;
 
 	matrix_oriented.add_edge(0, 2, 12);
 	matrix_oriented.add_edge(0, 4, 19);
