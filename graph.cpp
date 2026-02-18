@@ -2,8 +2,9 @@
 #include "graph.hpp"
 #include <cstddef>
 #include <iostream>
-#include <numeric>
 #include <ostream>
+#include <utility>
+#include <vector>
 
 static size_t interest = 0;
 static constexpr size_t kNodeAmount{ 7 };
@@ -54,6 +55,17 @@ void AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::add_edge(
 	}
 }
 
+template <bool isOriented, bool isWeighted, typename value_type>
+void AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted,
+		     value_type>::add_edge(size_t firstNode, size_t secondNode,
+					   value_type value)
+{
+	matrix[firstNode][secondNode] = value;
+	if constexpr (!isOriented) {
+		matrix[secondNode][firstNode] = value;
+	}
+}
+
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
 void AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
@@ -97,24 +109,22 @@ void AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 }
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
-size_t
-AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::countEdges()
+std::vector<std::pair<size_t, size_t> >
+AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::getEdges()
 {
-	size_t count = 0;
-	if constexpr (!(isWeighted || NodeAmount == kNodeAmountResizable)) {
-		for (auto &i : matrix) {
-			count += i.count();
+	std::vector<std::pair<size_t, size_t> > edges;
+	for (size_t i = 0; i != matrix.size(); ++i) {
+		size_t j = i;
+		if constexpr (isOriented) {
+			j = 0;
 		}
-
-		return count;
+		for (; j != matrix[0].size(); ++j) {
+			if (matrix[i][j] != 0) {
+				edges.push_back(std::make_pair(i, j));
+			}
+		}
 	}
-	for (auto &i : matrix) {
-		count += std::accumulate(i.begin(), i.end(),
-					 [](value_type a, value_type b) {
-						 return a + b;
-					 });
-	}
-	return count;
+	return edges;
 }
 
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
@@ -125,9 +135,9 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 		value_type>::getIncidenceMatrix()
 {
 	size_t iSize = matrix.size();
-	size_t jSize = countEdges();
+	std::vector<std::pair<size_t, size_t> > edges = getEdges();
+	size_t jSize = edges.size();
 	IncidenceMatrix result_matrix;
-
 	if constexpr (NodeAmount == kNodeAmountResizable) {
 		result_matrix.resize(iSize);
 	}
@@ -135,10 +145,11 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 	for (size_t i = 0; i < iSize; ++i) {
 		result_matrix[i].resize(jSize);
 		for (size_t j = 0; j < jSize; ++j) {
-			result_matrix[i][j] =
-				matrix[i][j] == 0 && matrix[j][i] != 0 ?
-					-matrix[j][i] :
-					matrix[i][j];
+			if (edges[j].first == i) {
+				result_matrix[i][j] = -1;
+			} else if (edges[j].second == i) {
+				result_matrix[i][j] = 1;
+			}
 		}
 	}
 
@@ -164,10 +175,8 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			result_matrix[i].resize(jSize);
 		}
 		for (size_t j = 0; j < jSize; ++j) {
-			if (matrix[i][j] != 0 || matrix[j][i] != 0) {
-				result_matrix[i][i] +=
-					std::max(matrix[i][j], matrix[j][i]);
-			}
+			result_matrix[i][i] +=
+				std::max(matrix[i][j], matrix[j][i]);
 		}
 	}
 
@@ -245,15 +254,14 @@ AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			result_matrix[i].resize(jSize);
 		}
 		for (size_t j = 0; j < jSize; ++j) {
-			if (matrix[i][j] != 0 || matrix[j][i] != 0) {
-				result_matrix[i][i] +=
-					std::max(matrix[i][j], matrix[j][i]);
+			result_matrix[i][i] +=
+				std::max(matrix[i][j], matrix[j][i]);
+			if (i != j) {
+				result_matrix[i][j] =
+					matrix[i][j] == 0 && matrix[j][i] != 0 ?
+						-matrix[j][i] :
+						-matrix[i][j];
 			}
-
-			result_matrix[i][j] =
-				matrix[i][j] == 0 && matrix[j][i] != 0 ?
-					-matrix[j][i] :
-					-matrix[i][j];
 		}
 	}
 
@@ -361,8 +369,21 @@ void draw_name(std::string_view str, size_t value)
 
 int main()
 {
-	GraphFirst::AdjacencyMatrix<kNodeAmount, false, false, uint16_t>
-		matrix_oriented;
+	GraphFirst::AdjacencyMatrix<kNodeAmount> matrix_oriented;
+	GraphFirst::ResizableAdjacencyMatrix<true, true, uint32_t>
+		matrix_changable;
+
+	matrix_changable.addVertex();
+	matrix_changable.addVertex();
+	matrix_changable.addVertex();
+	matrix_changable.addVertex();
+
+	matrix_changable.add_edge(static_cast<size_t>(0),
+				  static_cast<size_t>(1),
+				  static_cast<size_t>(10));
+
+	draw_name("Changable matrix", 4 * kTabSignsAmount + 2);
+	std::cout << matrix_changable;
 
 	matrix_oriented.add_edge(0, 2, 12);
 	matrix_oriented.add_edge(0, 4, 19);

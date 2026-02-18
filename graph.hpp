@@ -6,6 +6,7 @@
 #include <limits>
 #include <ostream>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace GraphFirst
@@ -17,16 +18,19 @@ constexpr node_value_type node_value_max =
 
 template <bool isWeighted, typename value_type, size_t N>
 class graphContainerTrait {
+    protected:
 	using Container = std::array<std::array<value_type, N>, N>;
 	using NamesContainer = std::array<std::string, N>;
 };
 template <bool isWeighted, typename value_type>
 class graphContainerTrait<isWeighted, value_type, kNodeAmountResizable> {
+    protected:
 	using Container = std::vector<std::vector<value_type> >;
 	using NamesContainer = std::vector<std::string>;
 };
 template <typename value_type, size_t N>
 class graphContainerTrait<false, value_type, N> {
+    protected:
 	using Container = std::array<std::bitset<N>, N>;
 	using NamesContainer = std::vector<std::string>;
 };
@@ -35,25 +39,30 @@ template <bool isOriented, typename value_type, size_t NodeAmount>
 class IncidenceMatrixType {};
 template <typename value_type, size_t NodeAmount>
 class IncidenceMatrixType<true, value_type, NodeAmount> {
+    protected:
 	using IncidenceMatrix = std::array<std::vector<value_type>, NodeAmount>;
 };
 template <typename value_type, size_t NodeAmount>
 class IncidenceMatrixType<false, value_type, NodeAmount> {
+    protected:
 	using IncidenceMatrix = std::array<std::vector<bool>, NodeAmount>;
 };
 template <typename value_type>
 class IncidenceMatrixType<false, value_type, kNodeAmountResizable> {
+    protected:
 	using IncidenceMatrix = std::vector<std::vector<value_type> >;
 };
 template <typename value_type>
 class IncidenceMatrixType<true, value_type, kNodeAmountResizable> {
+    protected:
 	using IncidenceMatrix = std::vector<std::vector<bool> >;
 };
 
 template <size_t NodeAmount, bool isOriented = true, bool isWeighted = true,
 	  typename value_type = node_value_type>
 class AdjacencyMatrix
-	: graphContainerTrait<isWeighted, value_type, NodeAmount> {
+	: graphContainerTrait<isWeighted, value_type, NodeAmount>,
+	  IncidenceMatrixType<isOriented, value_type, NodeAmount> {
     private:
     public:
 	using signed_value_type = std::make_signed_t<value_type>;
@@ -85,7 +94,6 @@ class AdjacencyMatrix
 		std::array<std::array<signed_value_type, NodeAmount>,
 			   NodeAmount>;
 
-    public:
 	template <size_t NodeAmountArg, bool isOrientedArg, bool isWeightedArg,
 		  typename value_type_arg>
 	friend std::ostream &operator<<(
@@ -124,8 +132,8 @@ class AdjacencyMatrix
 
     private:
 	ContainerType matrix = { 0 };
-	NameContainerType matrix_names = { 0 };
-	size_t countEdges();
+	NameContainerType matrix_names;
+	std::vector<std::pair<size_t, size_t> > getEdges();
 	signed_value_type djkstra(size_t first_node_index,
 				  size_t second_node_index);
 	bool isReachable(size_t first_node, size_t second_node);
@@ -133,7 +141,8 @@ class AdjacencyMatrix
 
 template <bool isOriented, bool isWeighted, typename value_type>
 class AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
-	: graphContainerTrait<isWeighted, value_type, kNodeAmountResizable> {
+	: graphContainerTrait<isWeighted, value_type, kNodeAmountResizable>,
+	  IncidenceMatrixType<isOriented, value_type, kNodeAmountResizable> {
     public:
 	using signed_value_type = std::make_signed_t<value_type>;
 	using unsigned_value_type = std::make_unsigned_t<value_type>;
@@ -157,8 +166,12 @@ class AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
 	using KirchoffMatrix = std::vector<std::vector<signed_value_type> >;
 
     public:
-	friend std::ostream &operator<<(std::ostream &out,
-					const AdjacencyMatrix &matrix);
+	template <size_t NodeAmountArg, bool isOrientedArg, bool isWeightedArg,
+		  typename value_type_arg>
+	friend std::ostream &operator<<(
+		std::ostream &out,
+		const AdjacencyMatrix<NodeAmountArg, isOrientedArg,
+				      isWeightedArg, value_type_arg> &matrix);
 
 	void add_edge(size_t firstNode, size_t secondNode,
 		      value_type value = 1);
@@ -195,6 +208,8 @@ class AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
 
 		return result_matrix;
 	}
+	void addVertex();
+
 	ContainerType &get_matrix()
 	{
 		return matrix;
@@ -213,12 +228,27 @@ class AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
 	AdjacencyMatrix &operator=(AdjacencyMatrix &&) = default;
 
     private:
-	ContainerType matrix = { 0 };
-	NameContainerType matrix_names = { 0 };
+	ContainerType matrix;
+	NameContainerType matrix_names;
 
-	size_t countEdges();
+	std::vector<std::pair<size_t, size_t> > getEdges();
 	signed_value_type djkstra(size_t first_node_index,
 				  size_t second_node_index);
 	bool isReachable(size_t first_node, size_t second_node);
 };
+template <bool isOriented, bool isWeighted, typename value_type>
+void AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted,
+		     value_type>::addVertex()
+{
+	matrix.push_back({});
+	matrix[matrix.size() - 1].resize(matrix.size()); //need to set to 0
+	for (auto it = matrix.begin(); it != matrix.end() - 1; ++it) {
+		(*it).push_back(0);
+	}
+};
+
+template <bool isOriented, bool isWeighted, typename value_type>
+using ResizableAdjacencyMatrix =
+	AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted,
+			value_type>;
 };
