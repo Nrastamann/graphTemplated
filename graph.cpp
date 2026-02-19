@@ -55,17 +55,6 @@ void AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::add_edge(
 	}
 }
 
-template <bool isOriented, bool isWeighted, typename value_type>
-void AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted,
-		     value_type>::add_edge(size_t firstNode, size_t secondNode,
-					   value_type value)
-{
-	matrix[firstNode][secondNode] = value;
-	if constexpr (!isOriented) {
-		matrix[secondNode][firstNode] = value;
-	}
-}
-
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
 void AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
@@ -110,9 +99,9 @@ void AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
 std::vector<std::pair<size_t, size_t> >
-AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::getEdges()
+AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::getEdges() const
 {
-	std::vector<std::pair<size_t, size_t> > edges;
+	std::vector<std::pair<size_t, size_t> > edges{};
 	for (size_t i = 0; i != matrix.size(); ++i) {
 		size_t j = i;
 		if constexpr (isOriented) {
@@ -132,12 +121,12 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			 value_type>::IncidenceMatrix
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-		value_type>::getIncidenceMatrix()
+		value_type>::getIncidenceMatrix() const
 {
 	size_t iSize = matrix.size();
 	std::vector<std::pair<size_t, size_t> > edges = getEdges();
 	size_t jSize = edges.size();
-	IncidenceMatrix result_matrix;
+	IncidenceMatrix result_matrix{};
 	if constexpr (NodeAmount == kNodeAmountResizable) {
 		result_matrix.resize(iSize);
 	}
@@ -161,12 +150,12 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			 value_type>::DegreeMatrix
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-		value_type>::getDegreeMatrix()
+		value_type>::getDegreeMatrix() const
 {
 	size_t iSize = matrix.size();
 	size_t jSize = matrix[0].size();
 
-	DegreeMatrix result_matrix = { 0 };
+	DegreeMatrix result_matrix{};
 	if constexpr (NodeAmount == kNodeAmountResizable) {
 		result_matrix.resize(iSize);
 	}
@@ -188,12 +177,12 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			 value_type>::ReachabilityMatrix
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-		value_type>::getReachabilityMatrix()
+		value_type>::getReachabilityMatrix() const
 {
 	size_t iSize = matrix.size();
 	size_t jSize = matrix[0].size();
 
-	ReachabilityMatrix result_matrix = { 0 };
+	ReachabilityMatrix result_matrix{};
 	if constexpr (NodeAmount == kNodeAmountResizable) {
 		result_matrix.resize(iSize);
 	}
@@ -214,12 +203,12 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			 value_type>::DistanceMatrix
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-		value_type>::getDistanceMatrix()
+		value_type>::getDistanceMatrix() const
 {
 	size_t iSize = matrix.size();
 	size_t jSize = matrix[0].size();
 
-	DistanceMatrix result_matrix = { 0 };
+	DistanceMatrix result_matrix{};
 	if constexpr (NodeAmount == kNodeAmountResizable) {
 		result_matrix.resize(iSize);
 	}
@@ -240,12 +229,12 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			 value_type>::KirchoffMatrix
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
-		value_type>::getKirchoffMatrix()
+		value_type>::getKirchoffMatrix() const
 {
 	size_t iSize = matrix.size();
 	size_t jSize = matrix[0].size();
 
-	KirchoffMatrix result_matrix = { 0 };
+	KirchoffMatrix result_matrix{};
 	if constexpr (NodeAmount == kNodeAmountResizable) {
 		result_matrix.resize(iSize);
 	}
@@ -273,18 +262,27 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 typename AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 			 value_type>::signed_value_type
 AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::djkstra(
-	size_t first_node_index, size_t second_node_index)
+	size_t first_node_index, size_t second_node_index) const
 {
 	if (first_node_index == second_node_index) {
 		return 0;
 	}
-	VisitedMatrix visited = { 0 };
+	VisitedMatrix visited{};
+	if constexpr (kNodeAmountResizable == NodeAmount) {
+		visited.resize(matrix.size());
+	}
 	visited[first_node_index] = true;
 
-	WeightsMatrix weights;
+	WeightsMatrix weights{};
+
+	if constexpr (kNodeAmountResizable == NodeAmount) {
+		weights.resize(matrix.size());
+	}
+
 	for (auto &i : weights) {
 		i = node_value_max;
 	}
+
 	weights[first_node_index] = 0;
 
 	size_t current_node = first_node_index;
@@ -321,12 +319,79 @@ template <size_t NodeAmount, bool isOriented, bool isWeighted,
 	  typename value_type>
 bool AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
 		     value_type>::isReachable(size_t first_node,
-					      size_t second_node)
+					      size_t second_node) const
 {
 	return djkstra(first_node, second_node) != node_value_max;
 }
 };
+template <size_t NodeAmount, bool isOriented, bool isWeighted,
+	  typename value_type>
+void GraphFirst::AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
+				 value_type>::removeVertex(size_t vertex_index)
+{
+	matrix.erase(matrix.begin() + vertex_index);
+	for (auto &row : matrix) {
+		row.erase(row.begin() + vertex_index);
+	}
+}
 
+template <size_t NodeAmount, bool isOriented, bool isWeighted,
+	  typename value_type>
+void GraphFirst::AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
+				 value_type>::addVertex()
+{
+	matrix.push_back({});
+	matrix[matrix.size() - 1].resize(matrix.size()); //need to set to 0
+	for (auto it = matrix.begin(); it != matrix.end() - 1; ++it) {
+		(*it).push_back(0);
+	}
+}
+
+template <size_t NodeAmount, bool isOriented, bool isWeighted,
+	  typename value_type>
+void GraphFirst::AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
+				 value_type>::resize(size_t size_new)
+{
+	matrix.resize(size_new);
+	for (auto &row : matrix) {
+		row.resize(size_new);
+	}
+}
+
+//===
+template <size_t NodeAmount, bool isOriented, bool isWeighted,
+	  typename value_type>
+template <size_t NodeAmountSend>
+GraphFirst::AdjacencyMatrix<GraphFirst::kNodeAmountResizable, isOriented,
+			    isWeighted, value_type>
+GraphFirst::AdjacencyMatrix<NodeAmount, isOriented, isWeighted, value_type>::
+	GraphIntersection(const GraphFirst::AdjacencyMatrix<
+			  NodeAmountSend, isOriented, isWeighted, value_type>
+				  &SecondMatrix) const
+{
+	AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
+		result;
+
+	return result;
+}
+
+template <size_t NodeAmount, bool isOriented, bool isWeighted,
+	  typename value_type>
+GraphFirst::AdjacencyMatrix<GraphFirst::kNodeAmountResizable, isOriented,
+			    isWeighted, value_type>
+GraphFirst::AdjacencyMatrix<NodeAmount, isOriented, isWeighted,
+			    value_type>::PullEdge(size_t first_node,
+						  size_t node_to_pull) const
+{
+	AdjacencyMatrix<kNodeAmountResizable, isOriented, isWeighted, value_type>
+		result_matrix{};
+	result_matrix.resize(matrix.size() - 1);
+	for (size_t i = 0; i < matrix.size(); ++i) {
+	}
+	return result_matrix;
+}
+
+//===
 template <typename ContainerInside, size_t CNodeAmount>
 std::ostream &operator<<(std::ostream &out,
 			 const std::array<ContainerInside, CNodeAmount> &matrix)
@@ -354,7 +419,33 @@ std::ostream &operator<<(std::ostream &out,
 	}
 	return out;
 }
+template <typename value_type>
+std::ostream &operator<<(std::ostream &out,
+			 const std::vector<std::vector<value_type> > &matrix)
+{
+	size_t iSize = matrix.size();
+	size_t jSize = matrix[0].size();
+	out << "\t|";
+	for (size_t i = 0; i < jSize; ++i) {
+		out << i + 1 << '\t';
+	}
 
+	out << '\n' << "\t|";
+	for (size_t i = 0; i < jSize; ++i) {
+		out << "=======";
+	}
+
+	out << '\n';
+
+	for (size_t i = 0; i < iSize; ++i) {
+		out << i + 1 << "\t|";
+		for (size_t j = 0; j < jSize; ++j) {
+			out << matrix[i][j] << '\t';
+		}
+		out << '\n';
+	}
+	return out;
+}
 constexpr size_t kTabSignsAmount{ 8 };
 void draw_name(std::string_view str, size_t value)
 {
@@ -373,18 +464,41 @@ int main()
 	GraphFirst::ResizableAdjacencyMatrix<true, true, uint32_t>
 		matrix_changable;
 
-	matrix_changable.addVertex();
-	matrix_changable.addVertex();
-	matrix_changable.addVertex();
-	matrix_changable.addVertex();
+	matrix_changable.resize(kNodeAmount);
 
-	matrix_changable.add_edge(static_cast<size_t>(0),
-				  static_cast<size_t>(1),
-				  static_cast<size_t>(10));
+	matrix_changable.add_edge(0, 2, 12);
+	matrix_changable.add_edge(0, 4, 19);
+	matrix_changable.add_edge(0, 5, 15);
+	matrix_changable.add_edge(0, 6, 7);
 
-	draw_name("Changable matrix", 4 * kTabSignsAmount + 2);
+	matrix_changable.add_edge(1, 0, 21);
+
+	matrix_changable.add_edge(2, 1, 4);
+
+	matrix_changable.add_edge(3, 0, 25);
+	matrix_changable.add_edge(3, 1, 23);
+
+	matrix_changable.add_edge(6, 1, 42);
+
+	draw_name("Adjacency Matrix", kNodeAmount * kTabSignsAmount + 2);
 	std::cout << matrix_changable;
 
+	draw_name("Incidence Matrix", kEdgesAmount * kTabSignsAmount + 2);
+	std::cout << matrix_changable.getIncidenceMatrix();
+
+	draw_name("Degree Matrix", kNodeAmount * kTabSignsAmount + 2);
+	std::cout << matrix_changable.getDegreeMatrix();
+
+	draw_name("Reachability Matrix", kNodeAmount * kTabSignsAmount + 2);
+	std::cout << matrix_changable.getReachabilityMatrix();
+
+	draw_name("Distance Matrix", kNodeAmount * kTabSignsAmount + 2);
+	std::cout << matrix_changable.getDistanceMatrix();
+
+	draw_name("Kirchoff Matrix", kNodeAmount * kTabSignsAmount + 2);
+	std::cout << matrix_changable.getKirchoffMatrix();
+
+	//============
 	matrix_oriented.add_edge(0, 2, 12);
 	matrix_oriented.add_edge(0, 4, 19);
 	matrix_oriented.add_edge(0, 5, 15);
@@ -417,24 +531,3 @@ int main()
 	draw_name("Kirchoff Matrix", kNodeAmount * kTabSignsAmount + 2);
 	std::cout << matrix_oriented.getKirchoffMatrix();
 }
-/*
-int main()
-{
-	AdjacencyMatrix<kNodeAmount> matrix_not_oriented;
-	AdjacencyMatrix<kNodeAmount, true> matrix_oriented;
-
-	std::cout << matrix_not_oriented << '\n';
-	matrix_not_oriented.connect_all();
-	std::cout << matrix_not_oriented << '\n';
-	matrix_not_oriented.clear_matrix();
-	std::cout << matrix_not_oriented << '\n';
-	matrix_not_oriented.add_edge(1, 2);
-	std::cout << matrix_not_oriented << '\n';
-	matrix_not_oriented.remove_edge(1, 2);
-	std::cout << matrix_not_oriented << '\n';
-
-	matrix_oriented.add_edge(1, 2);
-	std::cout << matrix_oriented << '\n';
-	matrix_oriented.remove_edge(1, 2);
-	std::cout << matrix_oriented << '\n';
-}*/
