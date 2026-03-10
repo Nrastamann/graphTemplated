@@ -190,7 +190,28 @@ class AdjacencyMatrix : graphContainerTrait<isWeighted, value_type, NodeAmount>,
 				value_type>
 			result_matrix{};
 		result_matrix.resize(matrix.size() - 1);
+		auto &working_matrix = result_matrix.get_matrix();
+
+		size_t index_i = 0;
 		for (size_t i = 0; i < matrix.size(); ++i) {
+			if (i == node_to_pull) {
+				continue;
+			}
+
+			size_t matrix_index_i = i == first_node ? node_to_pull :
+								  i;
+			size_t index_j = 0;
+			for (size_t j = 0; j < matrix[0].size(); ++j) {
+				if (j == node_to_pull) {
+					continue;
+				}
+
+				size_t matrix_index_j =
+					j == first_node ? node_to_pull : j;
+				working_matrix[index_i][index_j++] =
+					matrix[matrix_index_i][matrix_index_j];
+			}
+			index_i++;
 		}
 		return result_matrix;
 	}

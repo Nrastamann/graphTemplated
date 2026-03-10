@@ -6,4 +6,5 @@ target_sources(graphEngineLib
         PUBLIC
         FILE_SET HEADERS
         FILES
-        graph.hpp)
+        graph.hpp
+        graph_generation.hpp)
