@@ -29,6 +29,10 @@ namespace math {
   using Vec3 = std::array<T, 3>;
 
   template <typename T>
+  using Vec2  = std::array<T, 2>;
+  using vec2F = Vec2<float>;
+
+  template <typename T>
   Mat4<T>
   createMatrixTransform(Vec3<T> translation)
   {
