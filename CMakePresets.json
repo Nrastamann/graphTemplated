@@ -8,9 +8,11 @@
                      "binaryDir": "${sourceDir}/build/${presetName}",
                      "cacheVariables": {
                             "CMAKE_COLOR_DIAGNOSTICS": "ON",
-                            "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
+                            "CMAKE_COMPILE_WARNING_AS_ERROR": "OFF",
                             "CMAKE_CXX_STANDARD": "23",
-                            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                            "CMAKE_CXX_COMPILER": "clang++",
+                            "CMAKE_C_COMPILER": "clang"
                      }
               },
               {

@@ -15,6 +15,7 @@ AlignConsecutiveBitFields:
   PadOperators: true
 AlignConsecutiveMacros:
   Enabled: true
+IncludeBlocks: Preserve
 AllowShortEnumsOnASingleLine: false
 BreakAfterReturnType: AllDefinitions
 BreakBeforeBraces: Stroustrup
@@ -22,4 +23,4 @@ BreakConstructorInitializers: AfterColon
 DerivePointerAlignment: false
 InsertBraces: true
 NamespaceIndentation: All
-QualifierAlignment: Right
+QualifierAlignment: Left

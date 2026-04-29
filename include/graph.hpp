@@ -246,9 +246,10 @@ namespace graph_first {
         size_t k_value{};
         for (size_t j = i + 1; j < _matrix[i].size(); ++j) {
           for (size_t k = j + 1; k < _matrix[i].size(); ++k) {
-            sum_value += _matrix[i][j] * _matrix[j][k] * _matrix[k][i];
+            sum_value += static_cast<uint64_t>(_matrix[i][j] * _matrix[j][k] *
+                                               _matrix[k][i]);
           }
-          k_value += _matrix[i][j];
+          k_value += static_cast<size_t>(_matrix[i][j]);
         }
         if (k_value <= 1) {
           sum_value = 0;
