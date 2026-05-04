@@ -2,40 +2,26 @@
 
 layout(location = 0) in vec2 vertex;
 layout(location = 1) in vec3 colour;
-layout(location = 2) in vec3 Bordercolour;
-out vec4 result_colour;
+layout(location = 2) in vec3
+    Bordercolour;  // when drawing lines, use colour as colour
+layout(location = 3) in vec2 vertexTarget;
+layout(location = 4) in float Flag;  // and borderColour + Flag as 4 points
 
-// uniform mat4 model;
-// uniform mat4 view;
-// uniform mat4 projection;
-uniform vec4 borderColor;
+uniform vec2 u_resolution;
 uniform float borderThickness;
 uniform float radius;
 
-#ifdef GL_ES
-precision mediump float;
-#endif
-
-uniform vec2 u_resolution;
-uniform vec2 u_mouse;
-uniform float u_time;
+out vec2 vertexFragment;
+out vec3 colourFragment;
+out vec3 BordercolourFragment;
+out float FlagFrag;
 
 void
 main()
 {
-  vec2 st       = gl_FragCoord.xy / u_resolution;
-  // a. The DISTANCE from the pixel to the center
-  float d       = distance(st, vertex.xy);
-  float bg      = 0.5;
-
-  float pct     = 1.0 - smoothstep(0.0, borderThickness, abs(radius - d));
-
-  float t1      = 1.0 - smoothstep(radius - borderThickness, radius, d);
-  float t2      = 1.0 - smoothstep(radius, radius + borderThickness, d);
-
-  vec3 bgColor  = vec3(1.0);
-  vec3 color    = vec3(pct) * Bordercolour;
-
-  result_colour = vec4(mix(color, colour, t1), t2);
-  result_colour = mix(result_colour, vec4(bgColor * vec3(bg), 1.848), 2.0);
+  gl_Position    = vec4(vertexTarget / u_resolution * 2.0 - 1.0, 0.0f, 1.0f);
+  vertexFragment = vertex;
+  colourFragment = colour;
+  BordercolourFragment = Bordercolour;
+  FlagFrag             = Flag;
 }

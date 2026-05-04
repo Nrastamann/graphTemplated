@@ -27,10 +27,10 @@ add_compile_options(${SANITIZER_FLAGS})
 
 set(SRCS
         src/graph.cpp
-       src/graph_generation.cpp
-       src/triangle_mesh.cpp
        src/config.cpp
        src/material.cpp
+        src/shader_declaration.cpp
+        src/shader.cpp
 )
 
 option(cppcheck "Run CppCheck static code analysis" ON)
@@ -45,10 +45,13 @@ if(cppcheck)
   set(CMAKE_CXX_CPPCHECK ${cppcheck_exe} --std=c++23 ${cppcheck_opts})
 endif()
 
+
 find_library(GLFW_LIBRARY NAMES glfw glfw3 PATHS /usr/lib /usr/local/lib)
 find_path(GLFW_INCLUDES glfw3.h /usr/local/include /usr/include/)
 
 find_package(OpenGL REQUIRED)
+find_package(Freetype REQUIRED)
+
 
 target_sources(GraphsLabs 
         PRIVATE src/main.cpp ${SRCS}
@@ -57,5 +60,5 @@ target_sources(GraphsLabs
                 BASE_DIRS include ${GLFW_INCLUDES} 
 )
 target_include_directories(GraphsLabs SYSTEM PRIVATE deps/)
-target_link_libraries(GraphsLabs ${GLFW_LIBRARY} OpenGL::GL)
+target_link_libraries(GraphsLabs ${GLFW_LIBRARY} OpenGL::GL Freetype::Freetype)
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <vector>
+#include "entity.hpp"
 #include "linear_algrebra.hpp"
 #include "shader.hpp"
 
@@ -9,7 +10,8 @@ namespace app {
   class Renderer {
    public:
     bool loadShaders();
-    size_t makeCircleMesh(math::vec2F position, float radius);
+    size_t makeCircleMesh(math::vec2F position, float radius,
+                          math::vec3F colour);
     size_t makeCubeMesh(math::vec3F size);
     size_t makeTexture(std::filesystem::path& path);
     void setUpOpengl();
@@ -36,10 +38,13 @@ namespace app {
     void run();
 
    private:
+    Renderer _renderer;
     void setUpGlfw();
 
     std::unique_ptr<GLFWwindow, void (*)(GLFWwindow*)> _window;
     std::vector<System> _systems;
+    std::vector<entity::EntityIdInner> _entites;
+
     size_t _entity_count{};
   };
 }  // namespace app

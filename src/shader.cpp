@@ -1,12 +1,20 @@
 #include "shader.hpp"
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <sstream>
 namespace render {
   Shader::Shader(size_t shader, std::span<std::string_view> _uniforms) :
-      _shader(shader)
+      _shader(shader), _delete(true)
   {
+    _locations.resize(_uniforms.size());
     auto it = _locations.begin();
+
     for (auto& name : _uniforms) {
-      *it = glGetUniformLocation(shader, name.begin());
-      it  = std::next(it);
+      use();
+      *it = glGetUniformLocation(_shader, name.data());
+
+      std::advance(it, 1);
     }
   }
 
@@ -54,7 +62,7 @@ namespace render {
       glGetShaderInfoLog(shader_module, kBufferSz, nullptr, error_log.data());
       std::println("{} {} {}", kErrMsg[utility::toSZ(ErrorMsg::COMPILATIONERR)],
                    metadata._path.filename().c_str(),
-                   error_log);  // mayber error with error log
+                   std::string_view(error_log));  // mayber error with error log
     }
     return shader_module;
   }
@@ -90,7 +98,7 @@ namespace render {
     glUniform1i(_locations[idx], value);
   }
   void
-  Shader::setBool(size_t idx, float value) const
+  Shader::setFloat(size_t idx, float value) const
   {
     glUniform1f(_locations[idx], value);
   }
@@ -99,5 +107,16 @@ namespace render {
   {
     glUniformMatrix4fv(_locations[idx], 1, GL_FALSE,
                        value.data().data_handle());
+  }
+
+  void
+  Shader::setMatrix2f(size_t idx, math::vec2F& value) const
+  {
+    glUniform2f(_locations[idx], value[0], value[1]);
+  }
+  void
+  Shader::setFloatArr(size_t idx, size_t N, std::array<float, 49>& value) const
+  {
+    glUniform1fv(_locations[idx], static_cast<int32_t>(49), value.data());
   }
 }  // namespace render

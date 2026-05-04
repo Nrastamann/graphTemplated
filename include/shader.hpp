@@ -3,8 +3,10 @@
 
 #include <GLFW/glfw3.h>
 #include <cstdlib>
+#include <exception>
 #include <expected>
 #include <filesystem>
+#include <iostream>
 #include <iterator>
 #include <print>
 #include <span>
@@ -46,7 +48,30 @@ namespace render {
     explicit Shader(size_t shader, std::span<std::string_view> _uniforms);
 
    public:
-    ~Shader() { glDeleteProgram(_shader); }
+    Shader(Shader&& shdr) noexcept :
+        _locations(std::move(shdr._locations)),
+        _shader(shdr._shader),
+        _delete(shdr._delete)
+    {
+      shdr._delete = false;
+    }
+    Shader&
+    operator=(render::Shader&& shdr) noexcept
+    {
+      _locations   = std::move(shdr._locations);
+      _shader      = shdr._shader;
+      _delete      = shdr._delete;
+      shdr._delete = false;
+
+      return *this;
+    }
+
+    ~Shader()
+    {
+      if (_delete) {
+        glDeleteProgram(_shader);
+      }
+    }
     template <size_t N>
     static std::expected<Shader, bool>
     makeShader(std::span<ShaderMetadata, N> shaders_metadata,
@@ -77,7 +102,8 @@ namespace render {
         glGetProgramInfoLog(shader, kBufferSz, nullptr, error_log.data());
 
         std::println("{} {}", kErrMsg[utility::toSZ(ErrorMsg::LINKERR)],
-                     error_log);
+                     std::string_view(error_log));
+        throw std::exception({});
       }
 
       for (auto& module : modules) {
@@ -88,14 +114,21 @@ namespace render {
     }
 
     void use() const;
-
+    [[nodiscard]] size_t
+    getShader() const
+    {
+      return _shader;
+    }
     void setBool(size_t idx, bool value) const;
     void setInt(size_t idx, int32_t value) const;
-    void setBool(size_t idx, float value) const;
+    void setFloat(size_t idx, float value) const;
     void setMatrix4f(size_t idx, math::mat4F& value) const;
+    void setMatrix2f(size_t idx, math::vec2F& value) const;
+    void setFloatArr(size_t idx, size_t N, std::array<float, 49>& value) const;
 
    private:
     std::vector<int> _locations;
     size_t _shader;
+    bool _delete{false};
   };
 }  // namespace render

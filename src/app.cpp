@@ -15,8 +15,11 @@ namespace app {
   }
 
   size_t
-  Renderer::makeCircleMesh(math::vec2F position, float radius)
+  Renderer::makeCircleMesh(math::vec2F position, float radius,
+                           math::vec3F colour)
   {
+    // vertex + colour + borderColour
+    // uniform borderColor, thickness, rad
   }
 
 }  // namespace app

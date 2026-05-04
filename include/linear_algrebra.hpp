@@ -29,6 +29,10 @@ namespace math {
   using Vec3 = std::array<T, 3>;
 
   template <typename T>
+  using Vec4  = std::array<T, 4>;
+  using vec4F = Vec4<float>;
+
+  template <typename T>
   using Vec2  = std::array<T, 2>;
   using vec2F = Vec2<float>;
 
