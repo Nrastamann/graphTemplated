@@ -8,7 +8,6 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
-#include <optional>
 #include <ostream>
 #include <queue>
 #include <set>
