@@ -124,7 +124,6 @@ namespace render {
     void setFloat(size_t idx, float value) const;
     void setMatrix4f(size_t idx, math::mat4F& value) const;
     void setMatrix2f(size_t idx, math::vec2F& value) const;
-    void setFloatArr(size_t idx, size_t N, std::array<float, 49>& value) const;
 
    private:
     std::vector<int> _locations;

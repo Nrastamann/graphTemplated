@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "graph.hpp"
-
+/*
 graph_first::ResizableAdjacencyMatrix<false, false, uint8_t>
 getBAGraph(size_t node_amount, size_t edges_number, std::mt19937& generator)
 {
@@ -41,11 +41,14 @@ getBAGraph(size_t node_amount, size_t edges_number, std::mt19937& generator)
 
   return result_matrix;
 }
-
-static graph_first::ResizableAdjacencyMatrix<false, false, uint8_t>
+*/
+/*
+static graph_first::graph_types::ResizableGraph<
+    graph_first::graph_flags::kWeighted>
 getCircleMatrix(size_t node_amount, size_t neighbour_number)
 {
-  graph_first::ResizableAdjacencyMatrix<false, false, uint8_t> result_matrix;
+  graph_first::graph_types::ResizableGraph<graph_first::graph_flags::kWeighted>
+      result_matrix;
 
   result_matrix.resize(node_amount);
   auto& working_matrix = result_matrix.getMatrix();
@@ -61,10 +64,9 @@ getCircleMatrix(size_t node_amount, size_t neighbour_number)
   return result_matrix;
 }
 
-graph_first::ResizableAdjacencyMatrix<false, false, uint8_t>
-getWSGraph(size_t node_amount, size_t neighbour_number,
-           [[maybe_unused]] uint8_t percent,
-           [[maybe_unused]] std::mt19937& generator)
+graph_first::graph_types::ResizableGraph<graph_first::graph_flags::kWeighted>
+getWSGraph(size_t node_amount, size_t neighbour_number, uint8_t percent,
+           std::mt19937& generator)
 {
   neighbour_number     /= 2;
   auto result_matrix    = getCircleMatrix(node_amount, neighbour_number);
@@ -88,4 +90,4 @@ getWSGraph(size_t node_amount, size_t neighbour_number,
   }
 
   return result_matrix;
-}
+}*/

@@ -1,4 +1,5 @@
 #include "graph.hpp"
+/*
 namespace graph_first {
   void
   draw_name(std::string_view str, size_t value)
@@ -11,4 +12,4 @@ namespace graph_first {
     }
     std::cout << final_str << '\n';
   }
-}  // namespace graph_first
+}  // namespace graph_first*/

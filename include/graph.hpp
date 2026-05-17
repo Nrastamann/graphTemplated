@@ -4,11 +4,7 @@
 #include <bitset>
 #include <cstddef>
 #include <cstdint>
-#include <format>
-#include <iostream>
 #include <limits>
-#include <numeric>
-#include <ostream>
 #include <queue>
 #include <set>
 #include <span>
@@ -19,24 +15,55 @@
 #include <vector>
 
 namespace graph_first {
+
   using default_node_value_type = int16_t;
+  struct ClustersFlag {};
+
+  enum class GraphFlags : uint8_t {
+    Weighted,
+    Oriented,
+  };
+
+  namespace graph_flags {
+    constexpr size_t kEmpty{};
+
+    constexpr size_t kWeighted{1 << static_cast<size_t>(GraphFlags::Weighted)};
+    constexpr size_t kOriented{1 << static_cast<size_t>(GraphFlags::Oriented)};
+    constexpr size_t kFull{kWeighted | kOriented};
+
+  }  // namespace graph_flags
 
   struct AdjacencyListTag {};
   struct EdgesListTag {};
   struct NodeListTag {};
+  struct AdjacencyMatrixTag {};
 
-  template <size_t NodeAmount, bool IsOriented, bool IsWeighted,
-            typename ValueType, typename ContainerTag>
-  class AdjacencyMatrix;
+  template <size_t Nodeamount, size_t Flags, typename Valuetype,
+            typename Containertag>
+  class Graph;
 
-  constexpr size_t kNodeAmountResizable{0};
+  namespace graph_types {
+    constexpr size_t kNodeAmountResizable{0};
+    template <size_t GraphFlags, typename ValueType = uint8_t,
+              typename ContainerTag = AdjacencyMatrixTag>
+    using ResizableGraph =
+        Graph<kNodeAmountResizable, GraphFlags, ValueType, ContainerTag>;
 
-  template <bool IsOriented = false, bool IsWeighted = false,
-            typename ValueType    = uint8_t,
-            typename ContainerTag = AdjacencyListTag>
-  using ResizableAdjacencyMatrix =
-      AdjacencyMatrix<kNodeAmountResizable, IsOriented, IsWeighted, ValueType,
-                      ContainerTag>;
+    template <size_t NodeAmount, typename ValueType,
+              typename ContainerTag = AdjacencyMatrixTag>
+    using WeightedGraph =
+        Graph<NodeAmount, graph_flags::kWeighted, ValueType, ContainerTag>;
+
+    template <size_t NodeAmount, typename ValueType = uint8_t,
+              typename ContainerTag = AdjacencyMatrixTag>
+    using OrientedGraph =
+        Graph<NodeAmount, graph_flags::kOriented, ValueType, ContainerTag>;
+
+    template <size_t NodeAmount, typename ValueType,
+              typename ContainerTag = AdjacencyMatrixTag>
+    using WeightedOrientedGraph =
+        Graph<NodeAmount, graph_flags::kFull, ValueType, ContainerTag>;
+  }  // namespace graph_types
 
   template <typename ValueType>
   struct EdgeEntry {
@@ -53,8 +80,12 @@ namespace graph_first {
     std::vector<std::pair<size_t, ValueType>> _edges;
   };
 
+  template <typename ValueType>
+  using AdjacencyListEntry = std::pair<size_t, ValueType>;
+
+  //===========================
   template <bool IsWeighted, typename ValueType, size_t N,
-            typename ContainerTag = AdjacencyListTag>
+            typename ContainerTag = AdjacencyMatrixTag>
   class GraphContainerTrait {
    protected:
     using Container      = std::array<std::array<ValueType, N>, N>;
@@ -62,10 +93,27 @@ namespace graph_first {
   };
 
   template <bool IsWeighted, typename ValueType>
-  class GraphContainerTrait<IsWeighted, ValueType, kNodeAmountResizable,
-                            AdjacencyListTag> {
+  class GraphContainerTrait<IsWeighted, ValueType,
+                            graph_types::kNodeAmountResizable,
+                            AdjacencyMatrixTag> {
    protected:
     using Container      = std::vector<std::vector<ValueType>>;
+    using NamesContainer = std::vector<std::string>;
+  };
+
+  template <bool IsWeighted, typename ValueType, size_t N>
+  class GraphContainerTrait<IsWeighted, ValueType, N, AdjacencyListTag> {
+   protected:
+    using Container = std::array<std::vector<AdjacencyListEntry<ValueType>>, N>;
+    using NamesContainer = std::array<std::string, N>;
+  };
+
+  template <bool IsWeighted, typename ValueType>
+  class GraphContainerTrait<IsWeighted, ValueType,
+                            graph_types::kNodeAmountResizable,
+                            AdjacencyListTag> {
+   protected:
+    using Container = std::vector<std::vector<AdjacencyListEntry<ValueType>>>;
     using NamesContainer = std::vector<std::string>;
   };
 
@@ -77,8 +125,8 @@ namespace graph_first {
   };
 
   template <bool IsWeighted, typename ValueType>
-  class GraphContainerTrait<IsWeighted, ValueType, kNodeAmountResizable,
-                            EdgesListTag> {
+  class GraphContainerTrait<IsWeighted, ValueType,
+                            graph_types::kNodeAmountResizable, EdgesListTag> {
    protected:
     using Container      = std::vector<EdgeEntry<ValueType>>;
     using NamesContainer = std::vector<std::string>;
@@ -92,8 +140,8 @@ namespace graph_first {
   };
 
   template <bool IsWeighted, typename ValueType>
-  class GraphContainerTrait<IsWeighted, ValueType, kNodeAmountResizable,
-                            NodeListTag> {
+  class GraphContainerTrait<IsWeighted, ValueType,
+                            graph_types::kNodeAmountResizable, NodeListTag> {
    protected:
     using Container      = std::vector<NodeEntry<ValueType>>;
     using NamesContainer = bool;
@@ -101,6 +149,7 @@ namespace graph_first {
 
   template <bool IsOriented, typename ValueType, size_t NodeAmount>
   class IncidenceMatrixType {};
+
   template <typename ValueType, size_t NodeAmount>
   class IncidenceMatrixType<true, ValueType, NodeAmount> {
    protected:
@@ -113,12 +162,14 @@ namespace graph_first {
     using IncidenceMatrix = std::array<std::vector<bool>, NodeAmount>;
   };
   template <typename ValueType>
-  class IncidenceMatrixType<false, ValueType, kNodeAmountResizable> {
+  class IncidenceMatrixType<false, ValueType,
+                            graph_types::kNodeAmountResizable> {
    protected:
     using IncidenceMatrix = std::vector<std::vector<ValueType>>;
   };
   template <typename ValueType>
-  class IncidenceMatrixType<true, ValueType, kNodeAmountResizable> {
+  class IncidenceMatrixType<true, ValueType,
+                            graph_types::kNodeAmountResizable> {
    protected:
     using IncidenceMatrix = std::vector<std::vector<bool>>;
   };
@@ -141,7 +192,7 @@ namespace graph_first {
   };
 
   template <typename ValueType>
-  class MatrixTraits<kNodeAmountResizable, ValueType> {
+  class MatrixTraits<graph_types::kNodeAmountResizable, ValueType> {
    protected:
     using DegreeMatrix =
         std::vector<std::vector<std::make_unsigned_t<ValueType>>>;
@@ -155,68 +206,97 @@ namespace graph_first {
     using WeightsMatrix = std::vector<ValueType>;
   };
 
-  template <size_t NodeAmount, bool IsOriented = true, bool IsWeighted = true,
-            typename ValueType    = default_node_value_type,
-            typename ContainerTag = AdjacencyListTag>
-  class AdjacencyMatrix
-      : GraphContainerTrait<IsWeighted, ValueType, NodeAmount, ContainerTag>,
-        IncidenceMatrixType<IsOriented, ValueType, NodeAmount>,
-        MatrixTraits<NodeAmount, ValueType> {
+  template <size_t Flags, size_t NodeAmount, typename ValueType>
+  class GraphTraits
+      : protected MatrixTraits<NodeAmount, ValueType>,
+        protected IncidenceMatrixType<(Flags & graph_flags::kOriented) != 0U,
+                                      ValueType, NodeAmount>,
+        protected GraphContainerTrait<(Flags & graph_flags::kWeighted) != 0U,
+                                      ValueType, NodeAmount> {
+   protected:
+    using matrix_traits = MatrixTraits<NodeAmount, ValueType>;
+    using incedence_matrix_type =
+        IncidenceMatrixType<(Flags & graph_flags::kOriented) != 0U, ValueType,
+                            NodeAmount>;
+    using graph_container_traits =
+        GraphContainerTrait<(Flags & graph_flags::kWeighted) != 0U, ValueType,
+                            NodeAmount>;
+  };
+
+  //=============================
+  template <size_t NodeAmount, size_t Flags, typename ValueType,
+            typename ContainerTag = AdjacencyMatrixTag>
+  class Graph : protected GraphTraits<Flags, NodeAmount, ValueType> {
    private:
+    using traits = GraphTraits<Flags, NodeAmount, ValueType>;
     static constexpr ValueType kNodeValueMax =
         std::numeric_limits<ValueType>::max();
+
+    static constexpr bool kIsOriented{(Flags & graph_flags::kOriented) != 0U};
+    static constexpr bool kIsWeighted{(Flags & graph_flags::kWeighted) != 0U};
+    static constexpr bool kResizable{NodeAmount ==
+                                     graph_types::kNodeAmountResizable};
 
    public:
     using signed_value_type   = std::make_signed_t<ValueType>;
     using unsigned_value_type = std::make_unsigned_t<ValueType>;
 
-    using ContainerType =
-        typename GraphContainerTrait<IsWeighted, ValueType, NodeAmount,
-                                     ContainerTag>::Container;
-    using NameContainerType =
-        typename GraphContainerTrait<IsWeighted, ValueType, NodeAmount,
-                                     ContainerTag>::NamesContainer;
+    using ContainerType       = traits::Container;
+    using NameContainerType   = traits::NamesContainer;
+    using VisitedMatrix       = traits::VisitedMatrix;
+    using WeightsMatrix       = traits::WeightsMatrix;
+    using IncidenceMatrix     = traits::IncidenceMatrix;
+    using DegreeMatrix        = traits::DegreeMatrix;
+    using ReachabilityMatrix  = traits::ReachabilityMatrix;
+    using DistanceMatrix      = traits::DistanceMatrix;
+    using KirchoffMatrix      = traits::KirchoffMatrix;
 
-    using VisitedMatrix =
-        typename MatrixTraits<NodeAmount, ValueType>::VisitedMatrix;
-
-    using WeightsMatrix =
-        typename MatrixTraits<NodeAmount, ValueType>::WeightsMatrix;
-
-    using IncidenceMatrix =
-        typename IncidenceMatrixType<IsOriented, ValueType,
-                                     NodeAmount>::IncidenceMatrix;
-
-    using DegreeMatrix =
-        typename MatrixTraits<NodeAmount, ValueType>::DegreeMatrix;
-    using ReachabilityMatrix =
-        typename MatrixTraits<NodeAmount, ValueType>::ReachabilityMatrix;
-    using DistanceMatrix =
-        typename MatrixTraits<NodeAmount, ValueType>::DistanceMatrix;
-
-    using KirchoffMatrix =
-        typename MatrixTraits<NodeAmount, ValueType>::KirchoffMatrix;
-
-    template <size_t NodeAmountArg, bool IsOrientedArg, bool IsWeightedArg,
-              typename ValueTypeArg>
-    friend std::ostream& operator<<(
-        std::ostream& out,
-        const AdjacencyMatrix<NodeAmountArg, IsOrientedArg, IsWeightedArg,
-                              ValueTypeArg>& matrix);
-
-    template <typename ContainerTagArg = ContainerTag>
+    template <typename ContainerType = ContainerTag>
     void
-    addEdge(size_t firstNode, size_t secondNode, ValueType value = 1)
+    addEdgeImpl(size_t firstNode, size_t secondNode, ValueType value = 1)
     {
       _matrix[firstNode][secondNode] = value;
-      if constexpr (!IsOriented) {
+      if constexpr (!kIsOriented) {
         _matrix[secondNode][firstNode] = value;
       }
     }
 
+    /*
     template <>
     void
-    addEdge<NodeListTag>(size_t firstNode, size_t secondNode, ValueType value)
+    addEdgeImpl<AdjacencyListTag>(size_t firstNode, size_t secondNode,
+                                  ValueType value = 1)
+    {
+      if (_matrix[firstNode].size() == 0 ||
+          _matrix[firstNode][_matrix.size() - 1] != 0) {
+        _matrix[firstNode].emplace_back();
+      }
+
+      auto result = std::ranges::find(
+          _matrix[firstNode], [](auto& value) { return value.first == 0; });
+      result->first            = secondNode;
+      result->second           = value;
+
+      _matrix[firstNode].first = firstNode;
+      if constexpr (!kIsOriented) {
+        if (_matrix[secondNode].size() == 0 ||
+            _matrix[secondNode][_matrix.size() - 1] != 0) {
+          _matrix[secondNode].emplace_back();
+        }
+        result = std::ranges::find(
+            _matrix[secondNode], [](auto& value) { return value.first == 0; });
+        result->first  = firstNode;
+        result->second = value;
+      }
+    }
+
+
+     * */
+
+    template <>
+    void
+    addEdgeImpl<NodeListTag>(size_t firstNode, size_t secondNode,
+                             ValueType value)
     {
       _matrix[firstNode]._edges.emplace_back(secondNode, value);
 
@@ -240,13 +320,15 @@ namespace graph_first {
       if (!check && _matrix[secondNode]._idx != firstNode) {
         _matrix[secondNode]._neighbours.emplace_back(firstNode);
       }
+      // need to add for not-oriented
     }
 
     template <>
     void
-    addEdge<EdgesListTag>(size_t firstNode, size_t secondNode, ValueType value)
+    addEdgeImpl<EdgesListTag>(size_t firstNode, size_t secondNode,
+                              ValueType value)
     {
-      if constexpr (kNodeAmountResizable == NodeAmount) {
+      if constexpr (kResizable) {
         _matrix.push_back({firstNode, secondNode, value});
         return;
       }
@@ -258,43 +340,60 @@ namespace graph_first {
         }
       }
 
-      if constexpr (!IsOriented) {
+      if constexpr (!kIsOriented) {
         _matrix[secondNode][firstNode] = value;
       }
     }
 
     void
-    removeEdge(size_t firstNode, size_t secondNode)
+    addEdge(size_t firstNode, size_t secondNode, ValueType value = 1)
     {
-      _matrix[firstNode][secondNode] = 0;
-      if constexpr (!IsOriented) {
-        _matrix[secondNode][firstNode] = 0;
+      if constexpr (!kResizable) {
+        static_assert(firstNode < _matrix.size() && secondNode < _matrix.size(),
+                      "Wrong matrix size!");
       }
-    }
-    void
-    clearMatrix()
-    {
-      for (auto& row : _matrix) {
-        for (auto& element : row) {
-          element = 0;
+      else {
+        if (firstNode >= _matrix.size() || secondNode >= _matrix.size()) {
+          _matrix.resize(std::max(firstNode, secondNode));
         }
       }
+      addEdgeImpl(firstNode, secondNode, value);
     }
-    void
-    connectAll(ValueType value = 1)
-    {
-      for (auto& row : _matrix) {
-        for (auto& element : row) {
-          element = value;
+    /*
+        void
+        removeEdge(size_t firstNode, size_t secondNode)
+        {
+            _matrix[firstNode][secondNode] = 0;
+          if constexpr (!IsOriented) {
+            _matrix[secondNode][firstNode] = 0;
+          }
         }
-      }
-    }
+    */
+    /*    void
+        clearMatrix()
+        {
+          for (auto& row : _matrix) {
+            for (auto& element : row) {
+              element = 0;
+            }
+          }
+        }
+
+        void
+        connectAll(ValueType value = 1)
+        {
+          for (auto& row : _matrix) {
+            for (auto& element : row) {
+              element = value;
+            }
+          }
+        }
 
     template <typename T = ContainerTag>
     void
     addName(const std::string& str, size_t idx)
     {
-      if constexpr (NodeAmount == kNodeAmountResizable) {
+      if constexpr (kResizable) {
         if (_matrix_names.size() <= idx) {
           _matrix_names.resize(idx + 1);
         }
@@ -309,14 +408,13 @@ namespace graph_first {
     }
 
     template <size_t NodeAmountSend>
-    AdjacencyMatrix<kNodeAmountResizable, IsOriented, IsWeighted, ValueType>
-    graphIntersection(
-        const AdjacencyMatrix<NodeAmountSend, IsOriented, IsWeighted,
-                              ValueType>& SecondMatrix) const;
-    AdjacencyMatrix<kNodeAmountResizable, IsOriented, IsWeighted, ValueType>
+    Graph<kNodeAmountResizable, IsOriented, IsWeighted, ValueType>
+    graphIntersection(const Graph<NodeAmountSend, IsOriented, IsWeighted,
+                                  ValueType>& SecondMatrix) const;
+    Graph<kNodeAmountResizable, IsOriented, IsWeighted, ValueType>
     pullEdge(size_t first_node, size_t node_to_pull) const
     {
-      AdjacencyMatrix<kNodeAmountResizable, IsOriented, IsWeighted, ValueType>
+      Graph<kNodeAmountResizable, IsOriented, IsWeighted, ValueType>
           result_matrix{};
       result_matrix.resize(_matrix.size() - 1);
       auto& working_matrix = result_matrix.getMatrix();
@@ -353,6 +451,7 @@ namespace graph_first {
         (*it).push_back(0);
       }
     }
+    */
     void
     resize(size_t size_new)
     {
@@ -361,14 +460,16 @@ namespace graph_first {
         row.resize(size_new);
       }
     }
+
     void
     removeVertex(size_t vertex_index)
     {
-      _matrix.erase(_matrix.begin() + vertex_index);
+      _matrix.erase(_matrix.begin() + static_cast<int64_t>(vertex_index));
       for (auto& row : _matrix) {
-        row.erase(row.begin() + vertex_index);
+        row.erase(row.begin() + static_cast<int64_t>(vertex_index));
       }
     }
+    /*
     double
     getClasterization()
     {
@@ -396,7 +497,7 @@ namespace graph_first {
                                                  local_claster.end(), 0.)) /
              static_cast<double>(local_claster.size());
     }
-
+*/
     template <typename Tag = ContainerTag>
     bool
     isThereChain(std::span<size_t> vertexes)
@@ -685,12 +786,13 @@ namespace graph_first {
              static_cast<double>(_matrix.size() * (_matrix.size() - 1));
     }
 
-    size_t
-    getClusters()
+    std::vector<std::vector<size_t>>
+    getClusters(ClustersFlag)
     {
-      size_t kluster_num{};
+      std::vector<std::vector<size_t>> result;
       std::vector<size_t> vec(_matrix.size());
-      auto it = vec.begin();
+      auto it      = vec.begin();
+      auto it_prev = vec.begin();
 
       while (it != vec.end()) {
         size_t index                 = static_cast<size_t>(it - vec.begin());
@@ -700,11 +802,26 @@ namespace graph_first {
         std::ranges::transform(vec, vec_temp, vec.begin(),
                                [](size_t a1, size_t a2) { return a1 | a2; });
 
-        kluster_num++;
         it = std::ranges::find(vec, 0);
+        if (it != it_prev) {
+          size_t i = 0;
+          std::vector<size_t> temp;
+          std::ranges::for_each(vec_temp, [&i, &temp](auto edge_count) {
+            if (edge_count != 0) {
+              temp.push_back(i);
+            }
+            ++i;
+          });
+          result.emplace_back(std::move(temp));
+          it_prev = it;
+        }
       }
-
-      return kluster_num;
+      return result;
+    }
+    size_t
+    getClusters()
+    {
+      return getClusters({}).size();
     }
 
     size_t
@@ -741,7 +858,7 @@ namespace graph_first {
     {
       size_t edges_n = getEdgesNumber();
 
-      if constexpr (IsOriented) {
+      if constexpr (kIsOriented) {
         return (static_cast<double>(edges_n) /
                 static_cast<double>(_matrix.size() * (_matrix.size() - 1)));
       }
@@ -756,7 +873,7 @@ namespace graph_first {
       std::vector<std::pair<size_t, size_t>> edges = getEdges();
       size_t j_size                                = edges.size();
       IncidenceMatrix result_matrix{};
-      if constexpr (NodeAmount == kNodeAmountResizable) {
+      if constexpr (kResizable) {
         result_matrix.resize(i_size);
       }
 
@@ -781,11 +898,11 @@ namespace graph_first {
       size_t j_size = _matrix[0].size();
 
       DegreeMatrix result_matrix{};
-      if constexpr (NodeAmount == kNodeAmountResizable) {
+      if constexpr (kResizable) {
         result_matrix.resize(i_size);
       }
       for (size_t i = 0; i < i_size; ++i) {
-        if constexpr (NodeAmount == kNodeAmountResizable) {
+        if constexpr (kResizable) {
           result_matrix[i].resize(j_size);
         }
         for (size_t j = 0; j < j_size; ++j) {
@@ -802,11 +919,11 @@ namespace graph_first {
       size_t j_size = _matrix[0].size();
 
       ReachabilityMatrix result_matrix{};
-      if constexpr (NodeAmount == kNodeAmountResizable) {
+      if constexpr (kResizable) {
         result_matrix.resize(i_size);
       }
       for (size_t i = 0; i < i_size; ++i) {
-        if constexpr (NodeAmount == kNodeAmountResizable) {
+        if constexpr (kResizable) {
           result_matrix[i].resize(j_size);
         }
         for (size_t j = 0; j < j_size; ++j) {
@@ -823,11 +940,11 @@ namespace graph_first {
       size_t j_size = _matrix[0].size();
 
       DistanceMatrix result_matrix{};
-      if constexpr (NodeAmount == kNodeAmountResizable) {
+      if constexpr (kResizable) {
         result_matrix.resize(i_size);
       }
       for (size_t i = 0; i < i_size; ++i) {
-        if constexpr (NodeAmount == kNodeAmountResizable) {
+        if constexpr (kResizable) {
           result_matrix[i].resize(j_size);
         }
         for (size_t j = 0; j < j_size; ++j) {
@@ -845,11 +962,11 @@ namespace graph_first {
       size_t j_size = _matrix[0].size();
 
       KirchoffMatrix result_matrix{};
-      if constexpr (NodeAmount == kNodeAmountResizable) {
+      if constexpr (kResizable) {
         result_matrix.resize(i_size);
       }
       for (size_t i = 0; i < i_size; ++i) {
-        if constexpr (NodeAmount == kNodeAmountResizable) {
+        if constexpr (kResizable) {
           result_matrix[i].resize(j_size);
         }
         for (size_t j = 0; j < j_size; ++j) {
@@ -937,14 +1054,14 @@ namespace graph_first {
       return _matrix.size();
     }
 
-    ~AdjacencyMatrix()                                 = default;
-    AdjacencyMatrix()                                  = default;
+    ~Graph()                       = default;
+    Graph()                        = default;
 
-    AdjacencyMatrix(const AdjacencyMatrix&)            = default;
-    AdjacencyMatrix(AdjacencyMatrix&&)                 = default;
+    Graph(const Graph&)            = default;
+    Graph(Graph&&)                 = default;
 
-    AdjacencyMatrix& operator=(const AdjacencyMatrix&) = default;
-    AdjacencyMatrix& operator=(AdjacencyMatrix&&)      = default;
+    Graph& operator=(const Graph&) = default;
+    Graph& operator=(Graph&&)      = default;
 
    private:
     ContainerType _matrix{};
@@ -961,7 +1078,7 @@ namespace graph_first {
       std::vector<std::pair<size_t, size_t>> edges{};
       for (size_t i = 0; i != _matrix.size(); ++i) {
         size_t j = i;
-        if constexpr (IsOriented) {
+        if constexpr (kIsOriented) {
           j = 0;
         }
         for (; j != _matrix[0].size(); ++j) {
@@ -979,14 +1096,14 @@ namespace graph_first {
         return 0;
       }
       VisitedMatrix visited{};
-      if constexpr (kNodeAmountResizable == NodeAmount) {
+      if constexpr (kResizable) {
         visited.resize(_matrix.size());
       }
       visited[first_node_index] = true;
 
       WeightsMatrix weights{};
 
-      if constexpr (kNodeAmountResizable == NodeAmount) {
+      if constexpr (kResizable) {
         weights.resize(_matrix.size());
       }
 
@@ -1034,93 +1151,93 @@ namespace graph_first {
       return djkstra(first_node, second_node) != kNodeValueMax;
     }
   };
-
-  template <size_t NodeAmount2, bool IsOriented, bool IsWeighted,
-            typename ValueType2>
-  std::ostream&
-  operator<<(std::ostream& out,
-             const AdjacencyMatrix<NodeAmount2, IsOriented, IsWeighted,
-                                   ValueType2>& matrix)
-  {
-    size_t i_size = matrix._matrix.size();
-    size_t j_size = matrix._matrix[0].size();
-    out << "\t|";
-    for (size_t i = 0; i < i_size; ++i) {
-      out << i + 1 << '\t';
-    }
-
-    out << '\n' << "\t|";
-    for (size_t i = 0; i < i_size; ++i) {
-      out << "=======";
-    }
-
-    out << '\n';
-
-    for (size_t i = 0; i < i_size; ++i) {
-      out << i + 1 << "\t|";
-      for (size_t j = 0; j < j_size; ++j) {
-        out << std::format("{}\t", matrix._matrix[i][j]);
+  /*
+    template <size_t NodeAmount2, bool IsOriented, bool IsWeighted,
+              typename ValueType2>
+    std::ostream&
+    operator<<(
+        std::ostream& out,
+        const Graph<NodeAmount2, IsOriented, IsWeighted, ValueType2>& matrix)
+    {
+      size_t i_size = matrix._matrix.size();
+      size_t j_size = matrix._matrix[0].size();
+      out << "\t|";
+      for (size_t i = 0; i < i_size; ++i) {
+        out << i + 1 << '\t';
       }
-      out << '\n';
-    }
-    return out;
-  }
 
-  template <typename ContainerInside, size_t CNodeAmount>
-  std::ostream&
-  operator<<(std::ostream& out,
-             const std::array<ContainerInside, CNodeAmount>& matrix)
-  {
-    size_t i_size = matrix.size();
-    size_t j_size = matrix[0].size();
-    out << "\t|";
-    for (size_t i = 0; i < j_size; ++i) {
-      out << i + 1 << '\t';
-    }
-
-    out << '\n' << "\t|";
-    for (size_t i = 0; i < j_size; ++i) {
-      out << "=======";
-    }
-
-    out << '\n';
-
-    for (size_t i = 0; i < i_size; ++i) {
-      out << i + 1 << "\t|";
-      for (size_t j = 0; j < j_size; ++j) {
-        out << matrix[i][j] << '\t';
+      out << '\n' << "\t|";
+      for (size_t i = 0; i < i_size; ++i) {
+        out << "=======";
       }
+
       out << '\n';
-    }
-    return out;
-  }
-  template <typename ValueType>
-  std::ostream&
-  operator<<(std::ostream& out,
-             const std::vector<std::vector<ValueType>>& matrix)
-  {
-    size_t i_size = matrix.size();
-    size_t j_size = matrix[0].size();
-    out << "\t|";
-    for (size_t i = 0; i < j_size; ++i) {
-      out << i + 1 << '\t';
-    }
 
-    out << '\n' << "\t|";
-    for (size_t i = 0; i < j_size; ++i) {
-      out << "=======";
-    }
-
-    out << '\n';
-
-    for (size_t i = 0; i < i_size; ++i) {
-      out << i + 1 << "\t|";
-      for (size_t j = 0; j < j_size; ++j) {
-        out << matrix[i][j] << '\t';
+      for (size_t i = 0; i < i_size; ++i) {
+        out << i + 1 << "\t|";
+        for (size_t j = 0; j < j_size; ++j) {
+          out << std::format("{}\t", matrix._matrix[i][j]);
+        }
+        out << '\n';
       }
-      out << '\n';
+      return out;
     }
-    return out;
-  }
-  void drawName(std::string_view str, size_t value);
+
+    template <typename ContainerInside, size_t CNodeAmount>
+    std::ostream&
+    operator<<(std::ostream& out,
+               const std::array<ContainerInside, CNodeAmount>& matrix)
+    {
+      size_t i_size = matrix.size();
+      size_t j_size = matrix[0].size();
+      out << "\t|";
+      for (size_t i = 0; i < j_size; ++i) {
+        out << i + 1 << '\t';
+      }
+
+      out << '\n' << "\t|";
+      for (size_t i = 0; i < j_size; ++i) {
+        out << "=======";
+      }
+
+      out << '\n';
+
+      for (size_t i = 0; i < i_size; ++i) {
+        out << i + 1 << "\t|";
+        for (size_t j = 0; j < j_size; ++j) {
+          out << matrix[i][j] << '\t';
+        }
+        out << '\n';
+      }
+      return out;
+    }
+    template <typename ValueType>
+    std::ostream&
+    operator<<(std::ostream& out,
+               const std::vector<std::vector<ValueType>>& matrix)
+    {
+      size_t i_size = matrix.size();
+      size_t j_size = matrix[0].size();
+      out << "\t|";
+      for (size_t i = 0; i < j_size; ++i) {
+        out << i + 1 << '\t';
+      }
+
+      out << '\n' << "\t|";
+      for (size_t i = 0; i < j_size; ++i) {
+        out << "=======";
+      }
+
+      out << '\n';
+
+      for (size_t i = 0; i < i_size; ++i) {
+        out << i + 1 << "\t|";
+        for (size_t j = 0; j < j_size; ++j) {
+          out << matrix[i][j] << '\t';
+        }
+        out << '\n';
+      }
+      return out;
+    }
+    void drawName(std::string_view str, size_t value);*/
 }  // namespace graph_first

@@ -122,14 +122,15 @@ drawLine(vec2 p1, vec2 p2)
   if (a >= c || b >= c) {
     return 0.0;
   }
-  float p              = (a + b + c) * 0.5;
-  float h              = 2 / c * sqrt(p * (p - a) * (p - b) * (p - c));
+  float p = (a + b + c) * 0.5;
+  float h = 2 / c * sqrt(p * (p - a) * (p - b) * (p - c));
 
-  vec4 triangle_points = getPointy(vec2(p2.x - p1.x, p2.y - p1.y));
+  //  vec4 triangle_points = getPointy(vec2(p2.x - p1.x, p2.y - p1.y));
 
-  return max(isInTriangle(vec2(triangle_points.xy), vec2(triangle_points.zw),
-                          p2, gl_FragCoord.xy),
-             mix(1.0, 0.0, smoothstep(0.5 * 0.002, 1.5 * 0.002, h)));
+  // return //max(isInTriangle(vec2(triangle_points.xy),
+  // vec2(triangle_points.zw),
+  //                  p2, gl_FragCoord.xy),
+  return mix(1.0, 0.0, smoothstep(0.5 * 0.002, 1.5 * 0.002, h));
 }
 // https://math.stackexchange.com/questions/3632502/how-to-check-if-a-point-px-y-lies-inside-a-thick-line
 void

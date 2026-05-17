@@ -6,6 +6,7 @@
 #include <expected>
 #include <limits>
 #include <print>
+#include <unordered_map>
 #include "linear_algrebra.hpp"
 #include "shader.hpp"
 #include "shader_declaration.hpp"
@@ -98,6 +99,13 @@ namespace visual {
                            static_cast<int64_t>(kSizes.at(idx) * sizeof(float)),
                            _line_flag.data());
     }
+    math::vec4F
+    getEdgeCoords()
+    {
+      return {_border_colours[0], _border_colours[1], _border_colours[2],
+              _line_flag[0]};
+    }
+
     CircleMesh()
     {
       static size_t circle_number = 0;
@@ -237,7 +245,7 @@ namespace visual {
   };
 
   class GraphRenderer {
-    explicit GraphRenderer(render::Shader&& shaderCircle, render::Shader&&,
+    explicit GraphRenderer(render::Shader&& shaderCircle, const render::Shader&,
                            size_t N)
     {
       _shader.emplace_back(std::move(shaderCircle));
@@ -287,7 +295,7 @@ namespace visual {
       }
 
       return GraphRenderer(std::move(shader_wrapped.value()),
-                           std::move(line_shader_wrapped.value()), N);
+                           line_shader_wrapped.value(), N);
     }
 
     void
@@ -309,15 +317,17 @@ namespace visual {
       size_t current_max{0};
       size_t idx = 0;
       float distance{std::numeric_limits<float>::max()};
-      std::ranges::for_each(_drawData, [&current_max, pos, &distance,
-                                        &idx](const CircleMesh& draw_data) {
-        auto distance_cur = draw_data.distance(pos);
-        if (distance_cur < distance) {
-          current_max = idx;
-          distance    = distance_cur;
-        }
-        idx++;
-      });
+      std::ranges::for_each_n(
+          _drawData.begin(),
+          static_cast<int64_t>(_drawData.size() - _edges.size()),
+          [&current_max, pos, &distance, &idx](const CircleMesh& draw_data) {
+            auto distance_cur = draw_data.distance(pos);
+            if (distance_cur < distance) {
+              current_max = idx;
+              distance    = distance_cur;
+            }
+            idx++;
+          });
 
       return current_max;
     }
@@ -379,16 +389,58 @@ namespace visual {
       _shader[utility::toSZ(ShaderTypes::Circle)].setFloat(
           utility::toSZ(shaders::CircleUniforms::BorderThickness), thickness);
     }
+
     void
-    setLine(size_t idx, const math::vec4F& pointComponents)
+    setLine(size_t mesh_idx, size_t idx_start, size_t idx_end)
     {
-      _drawData.at(idx).markAsLine(
-          {
-              pointComponents[0],
-              pointComponents[1],
-              pointComponents[2],
-          },
-          pointComponents[3]);
+      _edges[mesh_idx] = {idx_start, idx_end};
+
+      auto pos_start   = _drawData[idx_start].getCenterPos();
+      auto pos_end     = _drawData[idx_end].getCenterPos();
+
+      _drawData.at(mesh_idx).markAsLine(
+          {pos_start[0], pos_start[1], pos_end[0]}, pos_end[1]);
+    }
+
+    size_t
+    size()
+    {
+      return _drawData.size();
+    }
+
+    void
+    updateEdge(size_t vertex_idx)
+    {
+      auto point_data = _drawData[vertex_idx].getCenterPos();
+
+      for (auto& edge : _edges) {
+        bool p1 = edge.second.first == vertex_idx;
+        bool p2 = edge.second.second == vertex_idx;
+        if (!(p1 || p2)) {
+          continue;
+        }
+
+        auto edge_data = _drawData[edge.first].getEdgeCoords();
+
+        if (p1) {
+          edge_data[0] = point_data[0];
+          edge_data[1] = point_data[1];
+        }
+        if (p2) {
+          edge_data[2] = point_data[0];
+          edge_data[3] = point_data[1];
+        }
+
+        _drawData[edge.first].markAsLine(
+            {edge_data[0], edge_data[1], edge_data[2]}, edge_data[3]);
+      }
+    }
+    void
+    print()
+    {
+      for (auto& i : _drawData) {
+        std::cout << i.getIdx() << '\n';
+      }
     }
     void
     printMeshState(size_t idx)
@@ -399,5 +451,6 @@ namespace visual {
    private:
     std::vector<render::Shader> _shader;
     std::vector<CircleMesh> _drawData;
+    std::unordered_map<size_t, std::pair<size_t, size_t>> _edges;
   };
 }  // namespace visual

@@ -114,9 +114,5 @@ namespace render {
   {
     glUniform2f(_locations[idx], value[0], value[1]);
   }
-  void
-  Shader::setFloatArr(size_t idx, size_t N, std::array<float, 49>& value) const
-  {
-    glUniform1fv(_locations[idx], static_cast<int32_t>(49), value.data());
-  }
+
 }  // namespace render

@@ -1,390 +1,212 @@
-#include <algorithm>
-#include <cassert>
-#include <chrono>
 #include <cmath>
+#include <print>
+#include <random>
+
 #include <cstdint>
 #include <ctime>
 #include <expected>
-#include <iostream>
-#include <iterator>
-#include <numbers>
-#include <print>
 
 #include <glad/gl.h>
-#include "GraphVisualisation.hpp"
 
 #include <GLFW/glfw3.h>
+#include "GraphVisualisation.hpp"
 #include "graph.hpp"
+#include "graph_generation.hpp"
 #include "linear_algrebra.hpp"
-static void
-runbenchmark()
-{
-  graph_first::AdjacencyMatrix<8, true, true, uint8_t,
-                               graph_first::AdjacencyListTag>
-      matrix;
-
-  matrix.addEdge(0, 1, 2);
-  matrix.addEdge(7, 0, 9);
-  matrix.addEdge(2, 0, 5);
-  matrix.addEdge(1, 2, 4);
-  matrix.addEdge(1, 7, 4);
-  matrix.addEdge(1, 3, 34);
-  matrix.addEdge(2, 3, 5);
-  matrix.addEdge(3, 4, 6);
-  matrix.addEdge(3, 5, 6);
-  matrix.addEdge(5, 6, 7);
-  matrix.addEdge(6, 7, 8);
-  matrix.addEdge(6, 1, 2);
-
-  matrix.addName("Nikolai II", 0);
-  matrix.addName("Petr III", 1);
-  matrix.addName("Ekaterina II", 2);
-  matrix.addName("Pavel I", 3);
-  matrix.addName("Aleksandr I", 4);
-  matrix.addName("Nikolai I", 5);
-  matrix.addName("Aleksandr II", 6);
-  matrix.addName("Aleksandr III", 7);
-
-  std::cout << "MATRIX\n";
-
-  for (size_t i = 0; i < matrix.size(); ++i) {
-    std::cout << matrix.getNames()[i] << '\t';
-    const auto& _matrix = matrix.getContainer();
-    for (unsigned char j : _matrix[i]) {
-      std::cout << '\t' << static_cast<uint64_t>(j) << ' ';
-    }
-    std::cout << '\n';
-  }
-  std::cout << '\n';
-
-  std::cout << "ALL Neighbours\n";
-  auto res = matrix.getNeighbours(0);
-  for (auto& i : res) {
-    std::println("{}", i);
-  }
-
-  std::cout << "All Edges\n";
-
-  auto bfs_res = matrix.bfsEdges(0);
-  std::cout << bfs_res.size() << '\n';
-  for (auto& i : bfs_res) {
-    std::println("{}", i);
-  }
-
-  std::cout << "VERTEX BIGGER THAN 15\n";
-  auto res_big = matrix.getBigVertexes(15);
-  for (auto& i : res_big) {
-    std::println("{}", i);
-  }
-  std::cout << "IS THERE CHAIN?\n";
-
-  std::vector<size_t> path_wrong   = {5, 6, 7, 1};
-  std::vector<size_t> path_correct = {1, 3, 5, 6};
-
-  std::println("INCORRECT CHAIN - {}, RESULT: {}", path_wrong,
-               matrix.isThereChain(path_wrong));
-  std::println("CORRECT CHAIN - {}, RESULT: {}", path_correct,
-               matrix.isThereChain(path_correct));
-
-  //===================
-  std::println("\n\n\n\n\n\n\n\nEDGELIST");
-  graph_first::AdjacencyMatrix<graph_first::kNodeAmountResizable, true, true,
-                               uint8_t, graph_first::EdgesListTag>
-      matrix_edges;
-
-  matrix_edges.addEdge(0, 1, 2);
-  matrix_edges.addEdge(7, 0, 9);
-  matrix_edges.addEdge(2, 0, 5);
-  matrix_edges.addEdge(1, 2, 4);
-  matrix_edges.addEdge(1, 7, 4);
-  matrix_edges.addEdge(1, 3, 34);
-  matrix_edges.addEdge(2, 3, 5);
-  matrix_edges.addEdge(3, 4, 6);
-  matrix_edges.addEdge(3, 5, 6);
-  matrix_edges.addEdge(5, 6, 7);
-  matrix_edges.addEdge(6, 7, 8);
-  matrix_edges.addEdge(6, 1, 2);
-
-  matrix_edges.addName("Nikolai II", 0);
-  matrix_edges.addName("Petr III", 1);
-  matrix_edges.addName("Ekaterina II", 2);
-  matrix_edges.addName("Pavel I", 3);
-  matrix_edges.addName("Aleksandr I", 4);
-  matrix_edges.addName("Nikolai I", 5);
-  matrix_edges.addName("Aleksandr II", 6);
-  matrix_edges.addName("Aleksandr III", 7);
-
-  std::cout << "MATRIX\n";
-
-  const auto& _matrix_edges = matrix_edges.getContainer();
-  for (size_t i = 0; i < matrix_edges.size(); ++i) {
-    std::cout << _matrix_edges[i]._startNode << ' ' << _matrix_edges[i]._endNode
-              << ' ' << static_cast<uint64_t>(_matrix_edges[i]._value) << '\n';
-  }
-  for (auto& names : matrix_edges.getNames()) {
-    std::cout << names << '\n';
-  }
-
-  std::cout << '\n';
-
-  std::cout << "ALL Neighbours\n";
-  res = matrix_edges.getNeighbours(0);
-  for (auto& i : res) {
-    std::println("{}", i);
-  }
-
-  std::cout << "All Edges\n";
-
-  bfs_res = matrix_edges.bfsEdges(0);
-  std::cout << bfs_res.size() << '\n';
-  for (auto& i : bfs_res) {
-    std::println("{}", i);
-  }
-
-  std::cout << "VERTEX BIGGER THAN 15\n";
-  res_big = matrix_edges.getBigVertexes(15);
-  for (auto& i : res_big) {
-    std::println("{}", i);
-  }
-  std::cout << "IS THERE CHAIN?\n";
-
-  std::println("INCORRECT CHAIN - {}, RESULT: {}", path_wrong,
-               matrix_edges.isThereChain(path_wrong));
-  std::println("CORRECT CHAIN - {}, RESULT: {}", path_correct,
-               matrix_edges.isThereChain(path_correct));
-
-  std::println("\n\n\n\n\n\n\n\nEDGELIST");
-  graph_first::AdjacencyMatrix<graph_first::kNodeAmountResizable, true, true,
-                               uint8_t, graph_first::NodeListTag>
-      matrix_node_list;
-  matrix_node_list.addEntry(0, "Nikolai II");
-  matrix_node_list.addEntry(1, "Petr III");
-  matrix_node_list.addEntry(2, "Ekaterina II");
-  matrix_node_list.addEntry(3, "Pavel I");
-  matrix_node_list.addEntry(4, "Aleksandr I");
-  matrix_node_list.addEntry(5, "Nikolai I");
-  matrix_node_list.addEntry(6, "Aleksandr II");
-  matrix_node_list.addEntry(7, "Aleksandr III");
-
-  size_t _idx = 0;
-  for (auto& i : matrix_node_list.getContainer()) {
-    assert(i._idx == _idx++);
-  }
-
-  matrix_node_list.addEdge(0, 1, 2);
-  matrix_node_list.addEdge(7, 0, 9);
-  matrix_node_list.addEdge(2, 0, 5);
-  matrix_node_list.addEdge(1, 2, 4);
-  matrix_node_list.addEdge(1, 7, 4);
-  matrix_node_list.addEdge(1, 3, 34);
-  matrix_node_list.addEdge(2, 3, 5);
-  matrix_node_list.addEdge(3, 4, 6);
-  matrix_node_list.addEdge(3, 5, 6);
-  matrix_node_list.addEdge(5, 6, 7);
-  matrix_node_list.addEdge(6, 7, 8);
-  matrix_node_list.addEdge(6, 1, 2);
-
-  std::cout << "MATRIX\n";
-
-  const auto& _matrix_node_list = matrix_node_list.getContainer();
-  for (size_t i = 0; i < matrix_node_list.size(); ++i) {
-    std::println("{} {} {}", _matrix_node_list[i]._idx,
-                 _matrix_node_list[i]._edges, (_matrix_node_list[i]._name));
-  }
-  for (auto& names : matrix_node_list.getNames(graph_first::NodeListTag{})) {
-    std::cout << names << '\n';
-  }
-
-  std::cout << '\n';
-
-  std::cout << "ALL Neighbours\n";
-  res = matrix_node_list.getNeighbours(0);
-  for (auto& i : res) {
-    std::println("{}", i);
-  }
-
-  std::cout << "All Edges\n";
-
-  bfs_res = matrix_node_list.bfsEdges(0);
-  std::cout << bfs_res.size() << '\n';
-  for (auto& i : bfs_res) {
-    std::println("{}", i);
-  }
-
-  std::cout << "VERTEX BIGGER THAN 15\n";
-  res_big = matrix_node_list.getBigVertexes(15);
-  for (auto& i : res_big) {
-    std::println("{}", i);
-  }
-  std::cout << "IS THERE CHAIN?\n";
-
-  std::println("INCORRECT CHAIN - {}, RESULT: {}", path_wrong,
-               matrix_node_list.isThereChain(path_wrong));
-  std::println("CORRECT CHAIN - {}, RESULT: {}", path_correct,
-               matrix_node_list.isThereChain(path_correct));
-
-  std::println("NEIGHBOURS BENCH");
-  std::println("starting Bench adj ");
-  double time_elapsed{};
-  constexpr size_t kBenchN{1000000};
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix.getNeighbours(0);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench edges");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix_edges.getNeighbours(0);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench Nodes");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix_node_list.getNeighbours(0);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("BENCH ALL EDGES");
-  std::println("starting Bench adj ");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix.bfsEdges(0);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench edges");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix_edges.bfsEdges(0);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench Nodes");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix_node_list.bfsEdges(0);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("15 AND GREATER WEIGHT BENCH");
-  std::println("starting Bench adj ");
-
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix.getBigVertexes(25);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench edges");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix_edges.getBigVertexes(25);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench Nodes");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix_node_list.getBigVertexes(25);
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("CHAIN BENCH");
-  std::println("starting Bench adj ");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix.isThereChain(path_correct);
-    res       = matrix.isThereChain(path_wrong);
-
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench edges");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix.isThereChain(path_correct);
-    res       = matrix.isThereChain(path_wrong);
-
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println("starting Bench Nodes");
-  time_elapsed = 0.0;
-  for (size_t i = 0; i < kBenchN; ++i) {
-    auto time = std::chrono::steady_clock::now();
-    auto res  = matrix.isThereChain(path_correct);
-    res       = matrix.isThereChain(path_wrong);
-
-    auto duration =
-        std::chrono::duration<double>{std::chrono::steady_clock::now() - time};
-    time_elapsed += duration.count();
-  }
-
-  std::println("RESULT: {}", time_elapsed / kBenchN);
-
-  std::println(
-      "Current sizes: \n\tAdjacency - {}\n\tEdges - {}\n\tNodeList - {}",
-      sizeof(matrix), sizeof(matrix_edges), sizeof(matrix_node_list));
-}
 
 using return_type = std::expected<uint32_t, bool>;
 namespace {
+
   constexpr float kRed{1.00F};
   constexpr float kGreen{1.0F};
   constexpr float kBlue{1.0F};
   constexpr float kAlpha{1.0F};
-  constexpr size_t kNumber{100};
-  constexpr size_t kDataSize{7};
+
+  constexpr size_t kRandomseed{228322};
+  constexpr bool kHexagon{true};
   //  constexpr float kFov{45.0F};
   //  constexpr float kNear{0.1F};
   //  constexpr float kFar{10.0F};
-  constexpr bool kBenchmark{false};
 }  // namespace
+struct GraphMovement {
+  size_t _idx{};
+  bool _pressed{};
+};
+
+static void
+updatePosition(math::vec2F position, size_t index,
+               visual::GraphRenderer& renderer)
+{
+  renderer.setPosition(index, position);
+  renderer.updateEdge(index);
+}
+
+static void
+mousePressed(math::vec2F& pos, GraphMovement& metadata,
+             visual::GraphRenderer& renderer)
+{
+  metadata._pressed = true;
+  metadata._idx     = renderer.getNearest(pos);
+}
+
+void
+mouseEvents(GLFWwindow* window, GraphMovement& metadata,
+            visual::GraphRenderer& renderer)
+{
+  std::integral auto state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+
+  double x{};
+  double y{};
+  glfwGetCursorPos(window, &x, &y);
+  math::vec2F position{static_cast<float>(x), static_cast<float>(1080. - y)};
+
+  metadata._pressed = false;
+
+  switch (state) {
+    case GLFW_PRESS:
+      if (!metadata._pressed) {
+        mousePressed(position, metadata, renderer);
+      }
+      updatePosition(position, metadata._idx, renderer);
+      break;
+    case GLFW_RELEASE:
+      metadata._pressed = false;
+    default:
+      return;
+  }
+}
+
+static void
+renderGraph(visual::GraphRenderer& renderer, auto& matrix)
+{
+  const auto& matrix_inner = matrix.getContainer();
+
+  renderer.use(visual::ShaderTypes::Circle);
+
+  renderer.resize(matrix.size());
+
+  std::mt19937 gen(kRandomseed);
+
+  size_t idx    = matrix.size();
+
+  auto clusters = matrix.getClusters({});
+
+  std::println("{}", matrix.getClusters({}));
+
+  for (auto& cluster : clusters) {
+    math::vec3F colour = {static_cast<float>(gen() % 100 / 100.),
+                          static_cast<float>(gen() % 100 / 100.),
+                          static_cast<float>(gen() % 100 / 100.)};
+    for (auto idx : cluster) {
+      renderer.setColour(idx, colour);
+    }
+  }
+
+  for (size_t i = 0; i < matrix_inner.size(); ++i) {
+    math::vec2F position{80., 80.};
+    renderer.setPosition(
+        i,
+        {std::max(
+             std::min(position[0] * static_cast<float>(i * std::cos(i)) + 80.F,
+                      1920.F),
+             80.F),
+         std::max(
+             std::min(position[1] * static_cast<float>(i * std::sin(i)) + 80.F,
+                      1080.F),
+             80.F)});
+  }
+
+  for (size_t i = 0; i < matrix_inner.size(); ++i) {
+    for (size_t j = i; j < matrix_inner[i].size(); ++j) {
+      if (matrix_inner[i][j] == 0) {
+        continue;
+      }
+      renderer.addNode();
+      renderer.setLine(idx++, i, j);
+    }
+  }
+}
+static void
+generateWS(visual::GraphRenderer& renderer)
+{
+  std::mt19937 gen(kRandomseed);
+
+  graph_first::graph_types::ResizableGraph<graph_first::graph_flags::kWeighted>
+      matrix = getWSGraph(30, 2, 50, gen);
+
+  renderGraph(renderer, matrix);
+}
+static graph_first::graph_types::ResizableGraph<
+    graph_first::graph_flags::kEmpty>
+generateHex(size_t M)
+{
+  graph_first::graph_types::ResizableGraph<graph_first::graph_flags::kEmpty>
+      matrix = {};
+  matrix.resize(M * M);
+
+  for (size_t i = 0; i < M; ++i) {
+    for (size_t j = 0; j < M; ++j) {
+      size_t v = ((i * M) + j);
+      size_t r = v / M;
+      size_t c = v % M;
+      if ((r % 4 == 0 && (c & 1) == 1) || (r % 4 == 2 && (c & 1) == 0)) {
+        if (r > 0) {
+          matrix.addEdge(v, v - M);
+          matrix.addEdge(v - M, v);
+        }
+        if (r < (M - 1) && c < (M - 1)) {
+          matrix.addEdge(v + M + 1, v);
+          matrix.addEdge(v, v + M + 1);
+        }
+        if (r < (M - 1) && c > 0) {
+          matrix.addEdge(v + M - 1, v);
+          matrix.addEdge(v, v + M - 1);
+        }
+      }
+    }
+  }
+
+  std::set<size_t, std::greater<>> idxes;
+  size_t c_i = 0;
+  for (const auto& arr : matrix.getContainer()) {
+    size_t test = 0;
+    for (auto i : arr) {
+      if (i != 0) {
+        test++;
+      }
+    }
+    if (test < 2) {
+      idxes.insert(c_i);
+    }
+    c_i++;
+  }
+
+  for (auto i : idxes) {
+    matrix.removeVertex(i);
+  }
+
+  return matrix;
+}
+
+static void
+benchmark()
+{
+  for (size_t i = 3; i < 10; ++i) {
+    auto matrix = generateHex(i);
+    std::println("Matrix {}x{}", i, i);
+    double time_elapsed{};
+    constexpr size_t kBenchN{1000000};
+    for (size_t j = 0; j < kBenchN; ++j) {
+      auto time     = std::chrono::steady_clock::now();
+      auto res      = matrix.getClusters({});
+      auto duration = std::chrono::duration<double>{
+          std::chrono::steady_clock::now() - time};
+      time_elapsed += duration.count();
+    }
+    std::println("RESULT: {}", time_elapsed / kBenchN);
+    std::print("\n\n");
+  }
+}
 
 int
 main()
@@ -425,92 +247,35 @@ main()
 
   renderer.use(visual::ShaderTypes::Circle);
 
-  math::vec2F resolution       = {static_cast<float>(w), static_cast<float>(h)};
-  constexpr float kBorderThick = {10.F};
+  if (kHexagon) {
+    benchmark();
+    auto matrix = generateHex(6);
+    renderGraph(renderer, matrix);
 
-  float k_radius               = {80.0F};
+    for (size_t i = 0; i < matrix.size(); ++i) {
+      renderer.setPosition(i, {i / 4 * 80.F + 960.F, i % 4 * 80.F + 540.F});
+      renderer.updateEdge(i);
+    }
+  }
+  else {
+    generateWS(renderer);
+  }
+
+  math::vec2F resolution       = {static_cast<float>(w), static_cast<float>(h)};
+
+  constexpr float kBorderThick = {10.F};
+  constexpr float kRadius      = {40.0F};
 
   renderer.setResolution(resolution);
   renderer.setBorderThickness(kBorderThick);
-  renderer.setRadius(k_radius);
-
-  graph_first::AdjacencyMatrix<8, true, true, uint8_t,
-                               graph_first::AdjacencyListTag>
-      matrix;
-
-  matrix.addEdge(0, 1, 2);
-  matrix.addEdge(7, 0, 9);
-  matrix.addEdge(2, 0, 5);
-  matrix.addEdge(1, 2, 4);
-  matrix.addEdge(1, 7, 4);
-  matrix.addEdge(1, 3, 34);
-  matrix.addEdge(2, 3, 5);
-  matrix.addEdge(3, 4, 6);
-  matrix.addEdge(3, 5, 6);
-  matrix.addEdge(5, 6, 7);
-  matrix.addEdge(6, 7, 8);
-  matrix.addEdge(6, 1, 2);
-
-  double k_angle_rotation{(360. / matrix.size() * (std::numbers::pi / 180.))};
-  static constexpr double kRadiusToOutside{500.};
-
-  const auto& matrix_container = matrix.getContainer();
-  size_t idx{};
-
-  renderer.use(visual::ShaderTypes::Circle);
-
-  static constexpr std::array<float, 30> kColours{
-      1.0,  1.0,  1.0,  1.0, 0.0, 0.0, 0.0,   1.0, 0.0, 0.0, 0.0, 1.0,
-      0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.69F, 0.0, 0.5, 0.0, 0.5, 0.69F};
-
-  renderer.resize(matrix_container.size());
-  for (; idx != matrix_container.size(); ++idx) {
-    renderer.setColour(idx, {kColours[idx * 3], kColours[(idx * 3) + 1],
-                             kColours[(idx * 3) + 2]});
-  }
-  idx = 0;
-
-  for (; idx != matrix_container.size(); ++idx) {
-    renderer.setPosition(
-        idx,
-        {static_cast<float>((resolution[0] / 2) +
-                            (kRadiusToOutside *
-                             cos(static_cast<double>(idx) * k_angle_rotation))),
-
-         static_cast<float>((resolution[1] / 2) +
-                            (kRadiusToOutside * sin(static_cast<double>(idx) *
-                                                    k_angle_rotation)))});
-  }
-
-  idx = matrix_container.size();
-
-  for (const auto* it = matrix_container.begin(); it != matrix_container.end();
-       std::advance(it, 1)) {
-    for (const auto* jt = it->begin(); jt != it->end(); std::advance(jt, 1)) {
-      if (*jt == 0) {
-        continue;
-      }
-      renderer.addNode();
-      auto position_start = renderer.getPoint(
-          matrix_container.size() +
-          static_cast<size_t>(std::distance(matrix_container.end(), it)));
-      auto position_end =
-          renderer.getPoint(matrix_container.size() +
-                            static_cast<size_t>(std::distance(it->end(), jt)));
-
-      renderer.setLine(idx++, {position_start[0], position_start[1],
-                               position_end[0], position_end[1]});
-    }
-  }
-
-  for (size_t i = 0; i < idx; ++i) {
-    renderer.printMeshState(i);
-  }
+  renderer.setRadius(kRadius);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   renderer.setResolution(resolution);
+
+  GraphMovement metadata{};
 
   while (glfwWindowShouldClose(window) == 0) {
     glfwPollEvents();
@@ -518,12 +283,9 @@ main()
     renderer.draw();
 
     glfwSwapBuffers(window);
+    mouseEvents(window, metadata, renderer);
   }
 
   glfwTerminate();
   return 0;
-
-  if (kBenchmark) {
-    runbenchmark();
-  }
 }
