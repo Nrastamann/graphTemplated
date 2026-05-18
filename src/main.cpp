@@ -248,7 +248,7 @@ main()
   renderer.use(visual::ShaderTypes::Circle);
 
   if (kHexagon) {
-    benchmark();
+    // benchmark();
     auto matrix = generateHex(6);
     renderGraph(renderer, matrix);
 
