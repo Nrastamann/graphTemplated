@@ -206,13 +206,14 @@ namespace graph_first {
     using WeightsMatrix = std::vector<ValueType>;
   };
 
-  template <size_t Flags, size_t NodeAmount, typename ValueType>
+  template <size_t Flags, size_t NodeAmount, typename ValueType,
+            typename ContainerType>
   class GraphTraits
       : protected MatrixTraits<NodeAmount, ValueType>,
         protected IncidenceMatrixType<(Flags & graph_flags::kOriented) != 0U,
                                       ValueType, NodeAmount>,
         protected GraphContainerTrait<(Flags & graph_flags::kWeighted) != 0U,
-                                      ValueType, NodeAmount> {
+                                      ValueType, NodeAmount, ContainerType> {
    protected:
     using matrix_traits = MatrixTraits<NodeAmount, ValueType>;
     using incedence_matrix_type =
@@ -226,9 +227,10 @@ namespace graph_first {
   //=============================
   template <size_t NodeAmount, size_t Flags, typename ValueType,
             typename ContainerTag = AdjacencyMatrixTag>
-  class Graph : protected GraphTraits<Flags, NodeAmount, ValueType> {
+  class Graph
+      : protected GraphTraits<Flags, NodeAmount, ValueType, ContainerTag> {
    private:
-    using traits = GraphTraits<Flags, NodeAmount, ValueType>;
+    using traits = GraphTraits<Flags, NodeAmount, ValueType, ContainerTag>;
     static constexpr ValueType kNodeValueMax =
         std::numeric_limits<ValueType>::max();
 
@@ -332,33 +334,52 @@ namespace graph_first {
         _matrix.push_back({firstNode, secondNode, value});
         return;
       }
-
-      for (auto& i : _matrix) {
-        if (firstNode == i._startNode && secondNode == i._endNode) {
-          i._value = value;
-          return;
-        }
-      }
-
-      if constexpr (!kIsOriented) {
-        _matrix[secondNode][firstNode] = value;
-      }
     }
 
     void
     addEdge(size_t firstNode, size_t secondNode, ValueType value = 1)
     {
+      // static_assert(!kResizable, "Not resizable");
       if constexpr (!kResizable) {
-        static_assert(firstNode < _matrix.size() && secondNode < _matrix.size(),
-                      "Wrong matrix size!");
       }
       else {
-        if (firstNode >= _matrix.size() || secondNode >= _matrix.size()) {
-          _matrix.resize(std::max(firstNode, secondNode));
-        }
+        /*   if (firstNode >= _matrix.size() || secondNode >= _matrix.size()) {
+             _matrix.resize(std::max(firstNode, secondNode));
+           }*/
       }
       addEdgeImpl(firstNode, secondNode, value);
     }
+
+    std::vector<size_t>
+    colorEdges()
+    {
+      std::vector<size_t> result_colours(_matrix.size());
+      std::vector<std::set<size_t>> used_colours(_matrix.size());
+
+      for (size_t i = 0; i != result_colours.size(); ++i) {
+        size_t colour_id{};
+
+        for (auto colour : used_colours[i]) {
+          if (colour_id != colour) {
+            break;
+          }
+          colour_id++;
+        }
+
+        result_colours[i] = colour_id;
+
+        for (auto edge = _matrix.begin(); edge != _matrix.end(); ++edge) {
+          if (edge->_startNode == _matrix[i]._startNode ||
+              edge->_startNode == _matrix[i]._endNode ||
+              edge->_endNode == _matrix[i]._endNode ||
+              edge->_endNode == _matrix[i]._startNode) {
+            used_colours[edge - _matrix.begin()].insert(colour_id);
+          }
+        }
+      }
+      return result_colours;
+    }
+
     /*
         void
         removeEdge(size_t firstNode, size_t secondNode)
@@ -497,7 +518,7 @@ namespace graph_first {
                                                  local_claster.end(), 0.)) /
              static_cast<double>(local_claster.size());
     }
-*/
+  */
     template <typename Tag = ContainerTag>
     bool
     isThereChain(std::span<size_t> vertexes)
@@ -509,7 +530,83 @@ namespace graph_first {
       }
       return _matrix[vertexes[vertexes.size() - 1]][vertexes[0]] != 0;
     }
+    void
+    dfs(int src, int dest, std::vector<size_t>& path,
+        std::vector<bool>& visited, std::vector<std::vector<size_t>>& allPathes)
+    {
+      path.push_back(src);
 
+      visited[src] = true;
+      if (src == dest) {
+        allPathes.push_back(path);
+      }
+      else {
+        for (auto& edge : _matrix) {
+          if (visited[edge._endNode] || edge._startNode != src) {
+            continue;
+          }
+          visited[edge._endNode] = true;
+          dfs(edge._endNode, dest, path, visited, allPathes);
+        }
+      }
+
+      path.pop_back();
+      visited[src] = false;
+    }
+    std::vector<size_t>
+    removeExternal()
+    {
+      std::vector<size_t> edges_to_remove{};
+      size_t degr{};
+      for (auto i = 0; i != _matrix.size(); ++i) {
+        for (auto j = i; j != _matrix.size(); ++j) {
+          if (_matrix[i]._startNode == _matrix[j]._endNode &&
+              _matrix[j]._startNode == _matrix[i]._endNode) {
+            edges_to_remove.push_back(j);
+          }
+        }
+      }
+
+      for (auto i : edges_to_remove) {
+        _matrix.erase(_matrix.begin() + i - (degr++));
+      }
+    }
+
+    std::vector<std::vector<size_t>>
+    getAllPathes(size_t point1, size_t point2)
+    {
+      std::set<size_t> vertex_count{};
+      std::ranges::for_each(_matrix, [&vertex_count](auto& edge) {
+        vertex_count.insert(edge._startNode);
+        vertex_count.insert(edge._endNode);
+      });
+
+      std::vector<std::vector<size_t>> pathes;
+      std::vector<size_t> path;
+      std::vector<bool> visited(vertex_count.size(), false);
+
+      dfs(point1, point2, path, visited, pathes);
+      removeExternal();
+
+      return pathes;
+    }
+    size_t
+    processPath(const std::vector<size_t>& path, std::vector<size_t>& edges)
+    {
+      size_t cost = 0;
+      for (size_t i = 0; i != path.size() - 1; ++i) {
+        size_t edge_idx = 0;
+        for (auto& edge : _matrix) {
+          if ((edge._startNode == path[i] && edge._endNode == path[i + 1]) ||
+              (edge._endNode == path[i] && edge._startNode == path[i + 1])) {
+            cost += edge._value;
+            edges.push_back(edge_idx);
+            break;
+          }
+          edge_idx++;
+        }
+      }
+    }
     template <>
     bool
     isThereChain<NodeListTag>(std::span<size_t> vertexes)
