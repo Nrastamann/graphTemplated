@@ -9,6 +9,7 @@
 #include <set>
 #include <span>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -339,17 +340,95 @@ namespace graph_first {
     void
     addEdge(size_t firstNode, size_t secondNode, ValueType value = 1)
     {
-      // static_assert(!kResizable, "Not resizable");
-      if constexpr (!kResizable) {
-      }
-      else {
-        /*   if (firstNode >= _matrix.size() || secondNode >= _matrix.size()) {
-             _matrix.resize(std::max(firstNode, secondNode));
-           }*/
-      }
+      /*
+             static_assert(!kResizable, "Not resizable");
+       if constexpr (!kResizable) {
+       }
+       else {
+            if (firstNode >= _matrix.size() || secondNode >= _matrix.size()) {
+              _matrix.resize(std::max(firstNode, secondNode));
+            }
+    }*/
       addEdgeImpl(firstNode, secondNode, value);
     }
+    std::vector<size_t>
+    colorVertexes(const DegreeMatrix& degrees)
+    {
+      std::set<size_t> vertexes;
+      std::ranges::for_each(_matrix, [&vertexes](auto& edges) {
+        vertexes.insert(edges._startNode);
+        vertexes.insert(edges._endNode);
+      });
 
+      std::vector<size_t> result_colours(vertexes.size());
+      std::vector<bool> coloured(vertexes.size(), false);
+
+      using colour_type = std::tuple<size_t, size_t, std::set<size_t>>;
+
+      std::vector<colour_type> used_colours(vertexes.size());
+
+      size_t colour_idx{};
+
+      auto to_heap = [](colour_type& a, colour_type& b) {
+        size_t a_size = std::get<2>(a).size();
+        size_t b_size = std::get<2>(b).size();
+
+        return a_size == b_size ? std::get<1>(a) > std::get<1>(b)
+                                : a_size > b_size;
+      };
+
+      for (auto& colours : used_colours) {
+        std::get<0>(colours) = colour_idx;
+        std::get<1>(colours) = degrees[colour_idx][colour_idx];
+        colour_idx++;
+      }
+
+      auto it = used_colours.begin();
+
+      for (size_t i = 0; i < vertexes.size(); ++i) {
+        std::ranges::sort(used_colours, to_heap);
+
+        for (it = used_colours.begin(); it != used_colours.end(); ++it) {
+          size_t idx = std::get<0>(*it);
+          if (coloured[idx]) {
+            continue;
+          }
+          coloured[idx] = true;
+          break;
+        }
+        size_t colour_id{};
+
+        for (const auto colour : std::get<std::set<size_t>>(*it)) {
+          if (colour_id != colour) {
+            break;
+          }
+          colour_id++;
+        }
+
+        size_t src_idx          = std::get<0>(*it);
+        result_colours[src_idx] = colour_id;
+
+        for (auto& edge : _matrix) {
+          size_t second_node = src_idx;
+          if (edge._startNode == src_idx) {
+            second_node = edge._endNode;
+          }
+          if (edge._endNode == src_idx) {
+            second_node = edge._startNode;
+          }
+          if (second_node == src_idx) {
+            continue;
+          }
+          auto used_colours_it =
+              std::ranges::find_if(used_colours, [second_node](auto& value) {
+                return std::get<0>(value) == second_node;
+              });
+
+          std::get<std::set<size_t>>(*used_colours_it).insert(colour_id);
+        }
+      }
+      return result_colours;
+    }
     std::vector<size_t>
     colorEdges()
     {
@@ -373,7 +452,8 @@ namespace graph_first {
               edge->_startNode == _matrix[i]._endNode ||
               edge->_endNode == _matrix[i]._endNode ||
               edge->_endNode == _matrix[i]._startNode) {
-            used_colours[edge - _matrix.begin()].insert(colour_id);
+            used_colours[static_cast<size_t>(edge - _matrix.begin())].insert(
+                colour_id);
           }
         }
       }
@@ -530,8 +610,9 @@ namespace graph_first {
       }
       return _matrix[vertexes[vertexes.size() - 1]][vertexes[0]] != 0;
     }
+
     void
-    dfs(int src, int dest, std::vector<size_t>& path,
+    dfs(size_t src, size_t dest, std::vector<size_t>& path,
         std::vector<bool>& visited, std::vector<std::vector<size_t>>& allPathes)
     {
       path.push_back(src);
@@ -553,22 +634,23 @@ namespace graph_first {
       path.pop_back();
       visited[src] = false;
     }
-    std::vector<size_t>
+
+    void
     removeExternal()
     {
       std::vector<size_t> edges_to_remove{};
       size_t degr{};
-      for (auto i = 0; i != _matrix.size(); ++i) {
-        for (auto j = i; j != _matrix.size(); ++j) {
+      for (size_t i = 0; i != _matrix.size(); ++i) {
+        for (size_t j = i; j != _matrix.size(); ++j) {
           if (_matrix[i]._startNode == _matrix[j]._endNode &&
               _matrix[j]._startNode == _matrix[i]._endNode) {
             edges_to_remove.push_back(j);
           }
         }
       }
-
       for (auto i : edges_to_remove) {
-        _matrix.erase(_matrix.begin() + i - (degr++));
+        _matrix.erase(_matrix.begin() + static_cast<int64_t>(i) -
+                      static_cast<int64_t>(degr++));
       }
     }
 
@@ -606,6 +688,7 @@ namespace graph_first {
           edge_idx++;
         }
       }
+      return cost;
     }
     template <>
     bool
@@ -991,6 +1074,34 @@ namespace graph_first {
     DegreeMatrix
     getDegreeMatrix() const
     {
+      std::set<size_t> vertexes;
+      std::ranges::for_each(_matrix, [&vertexes](auto& edges) {
+        vertexes.insert(edges._startNode);
+        vertexes.insert(edges._endNode);
+      });
+
+      size_t i_size = vertexes.size();
+
+      DegreeMatrix result_matrix{};
+      if constexpr (kResizable) {
+        result_matrix.resize(i_size);
+      }
+      for (auto& edge : _matrix) {
+        if constexpr (kResizable) {
+          result_matrix[edge._startNode].resize(i_size);
+          result_matrix[edge._endNode].resize(i_size);
+        }
+
+        result_matrix[edge._startNode][edge._startNode] += 1;
+        result_matrix[edge._endNode][edge._endNode]     += 1;
+      }
+
+      return result_matrix;
+    }
+    /*
+    DegreeMatrix
+    getDegreeMatrix() const
+    {
       size_t i_size = _matrix.size();
       size_t j_size = _matrix[0].size();
 
@@ -1008,7 +1119,7 @@ namespace graph_first {
       }
 
       return result_matrix;
-    }
+    }*/
     ReachabilityMatrix
     getReachabilityMatrix() const
     {
@@ -1125,7 +1236,7 @@ namespace graph_first {
         if (start || idx == i._endNode) {
           auto idx_to_push = start ? i._endNode : i._startNode;
 
-          res.emplace_back(_matrix_names[idx_to_push], idx_to_push);
+          res.emplace_back("v", idx_to_push);
           picked_neighbours.insert(idx_to_push);
         }
       }

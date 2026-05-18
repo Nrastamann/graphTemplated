@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <print>
@@ -7,6 +9,7 @@
 #include <ctime>
 #include <expected>
 #include <unordered_map>
+#include <vector>
 
 #include <glad/gl.h>
 
@@ -22,8 +25,8 @@ namespace {
   constexpr float kGreen{1.0F};
   constexpr float kBlue{1.0F};
   constexpr float kAlpha{1.0F};
-
-  constexpr size_t kRandomseed{0};
+  constexpr bool kRenderOn{true};
+  constexpr size_t kRandomseed{50};
   //  constexpr bool kHexagon{true};
   //    constexpr float kFov{45.0F};
   //    constexpr float kNear{0.1F};
@@ -50,7 +53,7 @@ mousePressed(math::vec2F& pos, GraphMovement& metadata,
   metadata._idx     = renderer.getNearest(pos);
 }
 
-static void
+void
 mouseEvents(GLFWwindow* window, GraphMovement& metadata,
             visual::GraphRenderer& renderer)
 {
@@ -76,6 +79,72 @@ mouseEvents(GLFWwindow* window, GraphMovement& metadata,
       return;
   }
 }
+static void
+renderGraphVertexesColoured(visual::GraphRenderer& renderer, auto& matrix,
+                            const std::vector<size_t>& colours)
+{
+  const auto& matrix_inner = matrix.getContainer();
+  std::set<size_t> vertexes;
+  for (auto& i : matrix_inner) {
+    vertexes.insert(i._startNode);
+    vertexes.insert(i._endNode);
+  }
+
+  renderer.use(visual::ShaderTypes::Circle);
+
+  renderer.resize(vertexes.size());
+
+  std::mt19937 gen(kRandomseed);
+
+  size_t idx = vertexes.size();
+
+  // auto clusters = matrix.getClusters({});
+
+  // std::println("{}", matrix.getClusters({}));
+
+  std::unordered_map<size_t, float> colours_render;
+
+  for (auto i : colours) {
+    if (colours_render.contains(i)) {
+      continue;
+    }
+
+    colours_render.emplace(i, static_cast<float>(gen() % 10000 / 10000.));
+  }
+  std::println("{}", colours_render);
+  /*
+    for (auto& cluster : clusters) {
+      math::vec3F colour = {static_cast<float>(gen() % 100 / 100.),
+                            static_cast<float>(gen() % 100 / 100.),
+                            static_cast<float>(gen() % 100 / 100.)};
+      for (auto idx : cluster) {
+        renderer.setColour(idx, colour);
+      }
+    }*/
+
+  for (size_t i = 0; i < vertexes.size(); ++i) {
+    math::vec2F position{80., 80.};
+    renderer.setPosition(
+        i,
+        {std::max(
+             std::min(position[0] * static_cast<float>(i * std::cos(i)) + 80.F,
+                      1920.F),
+             80.F),
+         std::max(
+             std::min(position[1] * static_cast<float>(i * std::sin(i)) + 80.F,
+                      1080.F),
+             80.F)});
+    renderer.setColour(
+        i, {colours_render[colours[i]], colours_render[colours[i]], 0.0F});
+  }
+
+  for (size_t i = 0; i < matrix_inner.size(); ++i) {
+    renderer.addNode();
+    renderer.setLine(idx++, matrix_inner[i]._startNode,
+                     matrix_inner[i]._endNode);
+  }
+}
+
 static void
 renderGraphEdges(visual::GraphRenderer& renderer, auto& matrix,
                  const std::vector<size_t>& colours)
@@ -191,11 +260,15 @@ renderGraph(visual::GraphRenderer& renderer, auto& matrix)
     renderer.setPosition(
         i,
         {std::max(
-             std::min(position[0] * static_cast<float>(i * std::cos(i)) + 80.F,
+             std::min(position[0] * static_cast<float>(static_cast<double>(i) *
+                                                       std::cos(i)) +
+                          80.F,
                       1920.F),
              80.F),
          std::max(
-             std::min(position[1] * static_cast<float>(i * std::sin(i)) + 80.F,
+             std::min(position[1] * static_cast<float>(static_cast<double>(i) *
+                                                       std::sin(i)) +
+                          80.F,
                       1080.F),
              80.F)});
   }
@@ -293,6 +366,7 @@ benchmark()
   }
 }
 */
+/*
 static graph_first::Graph<graph_first::graph_types::kNodeAmountResizable, 0,
                           uint8_t, graph_first::EdgesListTag>
 generateEdges1()
@@ -308,34 +382,35 @@ generateEdges1()
   matrix.addEdge(2, 3);
   return matrix;
 }
-
+*//*
 static graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
                           graph_first::graph_flags::kWeighted, uint8_t,
                           graph_first::EdgesListTag>
-generateEdges2()
-{
-  graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
-                     graph_first::graph_flags::kWeighted, uint8_t,
-                     graph_first::EdgesListTag>
-      matrix{};
-  matrix.addEdge(0, 6, 2);
-  matrix.addEdge(0, 3, 3);
-  matrix.addEdge(0, 4, 5);
+    
+    generateEdges2()
+    {
+      graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
+                         graph_first::graph_flags::kWeighted, uint8_t,
+                         graph_first::EdgesListTag>
+          matrix{};
+      matrix.addEdge(0, 6, 2);
+      matrix.addEdge(0, 3, 3);
+      matrix.addEdge(0, 4, 5);
 
-  matrix.addEdge(1, 2, 5);
-  matrix.addEdge(1, 3, 4);
-  matrix.addEdge(1, 5, 4);
-  matrix.addEdge(1, 6, 6);
+      matrix.addEdge(1, 2, 5);
+      matrix.addEdge(1, 3, 4);
+      matrix.addEdge(1, 5, 4);
+      matrix.addEdge(1, 6, 6);
 
-  matrix.addEdge(2, 3, 7);
+      matrix.addEdge(2, 3, 7);
 
-  matrix.addEdge(3, 4, 9);
+      matrix.addEdge(3, 4, 9);
 
-  matrix.addEdge(5, 6, 6);
+      matrix.addEdge(5, 6, 6);
 
-  return matrix;
-}
-
+      return matrix;
+    }
+    */
 static graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
                           graph_first::graph_flags::kWeighted |
                               graph_first::graph_flags::kOriented,
@@ -347,119 +422,228 @@ generateEdges3()
                          graph_first::graph_flags::kOriented,
                      uint8_t, graph_first::EdgesListTag>
       matrix{};
-  matrix.addEdge(4, 3, 9);
+  matrix.addEdge(0, 6, 2);
+  matrix.addEdge(0, 3, 3);
   matrix.addEdge(4, 0, 5);
 
-  matrix.addEdge(3, 0, 3);
-  matrix.addEdge(3, 2, 7);
-  matrix.addEdge(3, 1, 4);
-
-  matrix.addEdge(0, 3, 3);
-  matrix.addEdge(0, 6, 2);
-
   matrix.addEdge(2, 1, 5);
-
+  matrix.addEdge(3, 1, 4);
   matrix.addEdge(1, 5, 4);
   matrix.addEdge(1, 6, 6);
 
+  matrix.addEdge(3, 2, 7);
+
+  matrix.addEdge(4, 3, 9);
+  matrix.addEdge(3, 0, 3);
   matrix.addEdge(6, 1, 6);
   matrix.addEdge(6, 5, 6);
 
-  if (matrix.size() != 12) {
-    throw 1;
+  return matrix;
+}
+static graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
+                          graph_first::graph_flags::kOriented, uint8_t,
+                          graph_first::EdgesListTag>
+generateEdges4(std::span<std::array<uint8_t, 10>> arr)
+{
+  graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
+                     graph_first::graph_flags::kOriented, uint8_t,
+                     graph_first::EdgesListTag>
+      matrix{};
+
+  for (size_t i = 0; i < arr.size(); ++i) {
+    for (size_t j = i; j < arr.size(); ++j) {
+      if (arr[i][j] != 1) {
+        continue;
+      }
+      matrix.addEdge(i, j);
+    }
   }
   return matrix;
+}
+
+static std::array<std::array<uint8_t, 10>, 10>
+getRaw()
+{
+  return {
+      {
+       {0, 1, 1, 0, 0, 0, 1, 0, 1, 0},
+       {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+       {1, 0, 0, 1, 0, 0, 1, 1, 1, 0},
+       {0, 0, 1, 0, 0, 0, 1, 1, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+       {0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
+       {1, 0, 1, 1, 0, 0, 0, 0, 0, 0},
+       {0, 0, 1, 1, 1, 0, 0, 0, 1, 0},
+       {1, 0, 1, 0, 1, 1, 0, 1, 0, 0},
+       {0, 1, 0, 0, 1, 1, 0, 0, 0, 0},
+       }
+  };
+}
+
+static void
+pathesSorted()
+{
+  auto graph1  = generateEdges3();
+
+  auto pathes  = graph1.getAllPathes(4, 5);
+
+  auto colours = graph1.colorEdges();
+  std::println("{} - colours", colours);
+  std::vector<std::vector<size_t>> edges(pathes.size());
+  std::vector<size_t> costs(pathes.size());
+
+  std::vector<std::pair<size_t, std::vector<size_t>>> result(graph1.size());
+  auto jt = pathes.begin();
+
+  for (auto& res : result) {
+    size_t idx = static_cast<size_t>(jt - pathes.begin());
+    costs[idx] = graph1.processPath(*jt, edges[idx]);
+
+    res.first  = costs[idx];
+    res.second = std::move(edges[idx]);
+    std::advance(jt, 1);
+  }
+
+  std::ranges::sort(
+      result, [](const auto& a, const auto& b) { return a.first <= b.first; });
+
+  for (auto& i : result) {
+    std::println("{} - {} cost", i.second, i.first);
+  }
+
+  auto random_colour_it    = result.end();
+  const auto shortest_path = result.begin();
+
+  for (auto candidate_it = result.begin(); candidate_it != result.end();
+       ++candidate_it) {
+    std::set<size_t> picked_colours;
+    bool random_colours = true;
+    for (auto edge_idx : candidate_it->second) {
+      if (picked_colours.contains(colours[edge_idx])) {
+        random_colours = false;
+        break;
+      }
+      picked_colours.insert(colours[edge_idx]);
+    }
+    if (random_colours) {
+      random_colour_it = candidate_it;
+      break;
+    }
+  }
+  if (result.size() != 0) {
+    std::println("Shortest path is - {} with cost - {}", shortest_path->second,
+                 shortest_path->first);
+  }
+  if (random_colour_it != result.end()) {
+    std::println(
+        "Shortest path with all different colours is - {} with cost - {}",
+        random_colour_it->second, random_colour_it->first);
+  }
+  else {
+    std::println("Path with all different colours is not found");
+  }
 }
 
 int
 main()
 {
-  GLFWwindow* window = nullptr;
-  if (glfwInit() == 0) {
-    std::cout << "GLFW couldn't init window\n";
-    return -1;
-  }
-
-  window = glfwCreateWindow(visual::kWidth, visual::kHeight, "GraphsLabs",
-                            nullptr, nullptr);
-  glfwMakeContextCurrent(window);
-
-  if (gladLoadGL(glfwGetProcAddress) == 0) {
-    std::cout << "Couldn't load opengl\n";
-    glfwTerminate();
-    return -1;
-  }
-
-  // Set up OpenGL
-  glClearColor(kRed, kGreen, kBlue, kAlpha);
-  // Set the rendering region to the actual screen size
-  int w = 0;
-  int h = 0;
-
-  glfwGetFramebufferSize(window, &w, &h);
-  //(left, top, width, height)
-  glViewport(0, 0, w, h);
-
-  auto renderer_res = visual::GraphRenderer::createGraph(0);
-
-  if (!renderer_res.has_value()) {
-    return -1;
-  }
-
-  auto& renderer = renderer_res.value();
-
-  renderer.use(visual::ShaderTypes::Circle);
   /*
-    if (kHexagon) {
-      benchmark();
-      auto matrix = generateHex(6);
-      renderGraph(renderer, matrix);
+      if (kHexagon) {
+        benchmark();
+        auto matrix = generateHex(6);
+        renderGraph(renderer, matrix);
 
-      for (size_t i = 0; i < matrix.size(); ++i) {
-        renderer.setPosition(i, {i / 4 * 80.F + 960.F, i % 4 * 80.F + 540.F});
-        renderer.updateEdge(i);
+        for (size_t i = 0; i < matrix.size(); ++i) {
+          renderer.setPosition(i, {i / 4 * 80.F + 960.F, i % 4 * 80.F +
+      540.F}); renderer.updateEdge(i);
+        }
       }
+      else {
+      }*/
+  pathesSorted();
+  auto raw           = getRaw();
+  auto graph1        = generateEdges4(raw);
+
+  auto degree_matrix = graph1.getDegreeMatrix();
+  for (size_t i = 0; i < degree_matrix.size(); ++i) {
+    std::cout << +degree_matrix[i][i] << ' ';
+  }
+
+  for (size_t i = 0; i < degree_matrix.size(); ++i) {
+    auto neighbours = graph1.getNeighbours(i);
+    std::println("\n{} - {}", i, neighbours);
+  }
+
+  std::cout << '\n';
+  // auto colours = graph1.colorEdges();
+  auto colours = graph1.colorVertexes(degree_matrix);
+  std::println("colours - {}", colours);
+
+  if constexpr (kRenderOn) {
+    GLFWwindow* window = nullptr;
+    if (glfwInit() == 0) {
+      std::cout << "GLFW couldn't init window\n";
+      return -1;
     }
-    else {
-    }*/
-  auto graph1 = generateEdges3();
-  auto result = graph1.getAllPathes(4, 5);
-  std::println("{}", result);
-  for (auto& i : result) {
-    std::vector<size_t> edges;
-    graph1.processPath(i, edges);
+
+    window = glfwCreateWindow(visual::kWidth, visual::kHeight, "GraphsLabs",
+                              nullptr, nullptr);
+    glfwMakeContextCurrent(window);
+
+    if (gladLoadGL(glfwGetProcAddress) == 0) {
+      std::cout << "Couldn't load opengl\n";
+      glfwTerminate();
+      return -1;
+    }
+
+    // Set up OpenGL
+    glClearColor(kRed, kGreen, kBlue, kAlpha);
+    // Set the rendering region to the actual screen size
+    int w = 0;
+    int h = 0;
+
+    glfwGetFramebufferSize(window, &w, &h);
+    //(left, top, width, height)
+    glViewport(0, 0, w, h);
+
+    auto renderer_res = visual::GraphRenderer::createGraph(0);
+
+    if (!renderer_res.has_value()) {
+      return -1;
+    }
+
+    auto& renderer = renderer_res.value();
+
+    renderer.use(visual::ShaderTypes::Circle);
+
+    renderGraphVertexesColoured(renderer, graph1, colours);
+
+    math::vec2F resolution = {static_cast<float>(w), static_cast<float>(h)};
+
+    constexpr float kBorderThick = {10.F};
+    constexpr float kRadius      = {40.0F};
+
+    renderer.setResolution(resolution);
+    renderer.setBorderThickness(kBorderThick);
+    renderer.setRadius(kRadius);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    renderer.setResolution(resolution);
+
+    GraphMovement metadata{};
+
+    while (glfwWindowShouldClose(window) == 0) {
+      glfwPollEvents();
+      glClear(GL_COLOR_BUFFER_BIT);
+      renderer.draw();
+
+      glfwSwapBuffers(window);
+      mouseEvents(window, metadata, renderer);
+    }
+
+    glfwTerminate();
   }
-  return 0;
-  auto colours = graph1.colorEdges();
-  std::println("{}", colours);
-
-  renderGraphEdges(renderer, graph1, colours);
-
-  math::vec2F resolution       = {static_cast<float>(w), static_cast<float>(h)};
-
-  constexpr float kBorderThick = {10.F};
-  constexpr float kRadius      = {40.0F};
-
-  renderer.setResolution(resolution);
-  renderer.setBorderThickness(kBorderThick);
-  renderer.setRadius(kRadius);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-  renderer.setResolution(resolution);
-
-  GraphMovement metadata{};
-
-  while (glfwWindowShouldClose(window) == 0) {
-    glfwPollEvents();
-    glClear(GL_COLOR_BUFFER_BIT);
-    renderer.draw();
-
-    glfwSwapBuffers(window);
-    mouseEvents(window, metadata, renderer);
-  }
-
-  glfwTerminate();
   return 0;
 }
