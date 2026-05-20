@@ -29,7 +29,7 @@ namespace {
   constexpr float kGreen{1.0F};
   constexpr float kBlue{1.0F};
   constexpr float kAlpha{1.0F};
-  constexpr bool kRenderOn{true};
+  constexpr bool kRenderOn{false};
   constexpr size_t kRandomseed{10};
   //  constexpr bool kHexagon{true};
   //    constexpr float kFov{45.0F};
@@ -684,7 +684,7 @@ nussinov(const std::array<uint8_t, N>& rna_types)
     for (size_t i = 0; i != N - k; ++i) {
       size_t j = i + k;
       size_t bifurc{};
-      for (size_t k4 = i + 1; k4 < j; ++k4) {
+      for (size_t k4 = i; k4 < j; ++k4) {
         bifurc =
             std::max(bifurc, result_matrix[i][k4] + result_matrix[k4 + 1][j]);
       }
@@ -717,7 +717,7 @@ nussinov(const std::array<uint8_t, N>& rna_types)
       j -= 1;
     }
 
-    for (size_t k = i + 1; k < j; ++k) {
+    for (size_t k = i; k < j; ++k) {
       if (visited[k][j] ||
           !compatability_check(static_cast<RNKType>(rna_types[k]),
                                static_cast<RNKType>(rna_types[j]))) {
@@ -735,14 +735,23 @@ nussinov(const std::array<uint8_t, N>& rna_types)
                              : std::pair<size_t, size_t>{};
     }
   }
+
+  std::println("{}", pairs);
   graph_first::graph_types::ResizableGraph<0> result_graph;
   result_graph.resize(N);
-  for (auto& edge : pairs) {
-    result_graph.addEdge(edge.first, edge.second);
-  }
   for (size_t i = 0; i != N - 1; ++i) {
     result_graph.addEdge(i, i + 1);
   }
+  for (const auto& i : result_graph.getContainer()) {
+    for (auto j : i) {
+      std::cout << +j << ' ';
+    }
+    std::cout << '\n';
+  }
+  for (auto& edge : pairs) {
+    result_graph.addEdge(edge.first, edge.second);
+  }
+
   return result_graph;
 }
 
