@@ -127,3 +127,13 @@ generateGraph(uint8_t percent, std::mt19937& generator,
 
   return result_graph;
 }
+
+template <size_t N>
+void
+generateRNK(std::mt19937& generator, std::array<uint8_t, N>& rnaTypes)
+{
+  for (size_t i = 0; i != N - 1; ++i) {
+    rnaTypes[i] = generator() % 4;
+  }
+  rnaTypes[N - 1] = generator() % 4;
+}

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <fstream>
 #include <print>
+#include <queue>
 #include <random>
 
 #include <cstdint>
@@ -29,7 +30,7 @@ namespace {
   constexpr float kBlue{1.0F};
   constexpr float kAlpha{1.0F};
   constexpr bool kRenderOn{true};
-  constexpr size_t kRandomseed{50};
+  constexpr size_t kRandomseed{10};
   //  constexpr bool kHexagon{true};
   //    constexpr float kFov{45.0F};
   //    constexpr float kNear{0.1F};
@@ -233,7 +234,7 @@ renderGraphEdges(visual::GraphRenderer& renderer, auto& matrix,
 }
 
 static void
-renderGraph(visual::GraphRenderer& renderer, auto& matrix)
+renderGraph(visual::GraphRenderer& renderer, auto& matrix, auto& colours)
 {
   const auto& matrix_inner = matrix.getContainer();
 
@@ -243,19 +244,18 @@ renderGraph(visual::GraphRenderer& renderer, auto& matrix)
 
   std::mt19937 gen(kRandomseed);
 
-  size_t idx    = matrix.size();
+  size_t idx = 0;
 
-  auto clusters = matrix.getClusters({});
+  std::array<std::pair<float, float>, 4> colours_rna{};
 
-  std::println("{}", matrix.getClusters({}));
+  for (auto& rna : colours_rna) {
+    rna.first  = static_cast<float>(gen() % 1000 / 1000.);
+    rna.second = static_cast<float>(gen() % 1000 / 1000.);
+  }
 
-  for (auto& cluster : clusters) {
-    math::vec3F colour = {static_cast<float>(gen() % 100 / 100.),
-                          static_cast<float>(gen() % 100 / 100.),
-                          static_cast<float>(gen() % 100 / 100.)};
-    for (auto idx : cluster) {
-      renderer.setColour(idx, colour);
-    }
+  for (auto rna_type : colours) {
+    renderer.setColour(idx++, math::vec3F{colours_rna[rna_type].first,
+                                          colours_rna[rna_type].second, 1.0F});
   }
 
   for (size_t i = 0; i < matrix_inner.size(); ++i) {
@@ -624,7 +624,7 @@ bfs(const std::array<std::array<size_t, 10>, 10>& _matrix)
   return false;
 }
 
-static void
+void
 secondPart()
 {
   std::mt19937 gen(static_cast<uint64_t>(
@@ -656,18 +656,110 @@ secondPart()
   file.close();
 }
 
+enum class RNKType : uint8_t {
+  A = 0,
+  U = 1,
+  G = 2,
+  C = 3
+};
+
+template <size_t N>
+static graph_first::graph_types::ResizableGraph<0>
+nussinov(const std::array<uint8_t, N>& rna_types)
+{
+  auto compatability_check = [](RNKType type1, RNKType type2) {
+    if ((type1 == RNKType::A && type2 == RNKType::U) ||
+        (type1 == RNKType::U && type2 == RNKType::A)) {
+      return true;
+    }
+    if ((type1 == RNKType::G && type2 == RNKType::C) ||
+        (type1 == RNKType::C && type2 == RNKType::G)) {
+      return true;
+    }
+    return false;
+  };
+
+  std::array<std::array<size_t, N>, N> result_matrix{};
+  for (size_t k = 1; k != N; ++k) {
+    for (size_t i = 0; i != N - k; ++i) {
+      size_t j = i + k;
+      size_t bifurc{};
+      for (size_t k4 = i + 1; k4 < j; ++k4) {
+        bifurc =
+            std::max(bifurc, result_matrix[i][k4] + result_matrix[k4 + 1][j]);
+      }
+
+      result_matrix[i][j] = std::max(
+          std::max(result_matrix[i + 1][j], result_matrix[i][j - 1]),
+          std::max(result_matrix[i + 1][j - 1] +
+                       compatability_check(static_cast<RNKType>(rna_types[i]),
+                                           static_cast<RNKType>(rna_types[j])),
+                   bifurc));
+    }
+  }
+
+  std::vector<std::pair<size_t, size_t>> pairs;
+  std::queue<std::pair<size_t, size_t>> queue;
+  std::array<std::array<bool, N>, N> visited{};
+
+  queue.emplace(0, N - 1);
+
+  while (!queue.empty()) {
+    size_t i = queue.front().first;
+    size_t j = queue.front().second;
+
+    queue.pop();
+    if (i >= j) {
+      continue;
+    }
+    visited[i][j] = true;
+    if (result_matrix[i][j] == result_matrix[i][j - 1]) {
+      j -= 1;
+    }
+
+    for (size_t k = i + 1; k < j; ++k) {
+      if (visited[k][j] ||
+          !compatability_check(static_cast<RNKType>(rna_types[k]),
+                               static_cast<RNKType>(rna_types[j]))) {
+        continue;
+      }
+
+      if (result_matrix[i][j] !=
+          (result_matrix[i][k - 1] + result_matrix[k + 1][j - 1] + 1)) {
+        continue;
+      }
+      pairs.emplace_back(k, j);
+      !visited[i][k - 1] ? queue.emplace(i, k - 1)
+                         : std::pair<size_t, size_t>{};
+      !visited[k + 1][j - 1] ? queue.emplace(k + 1, j - 1)
+                             : std::pair<size_t, size_t>{};
+    }
+  }
+  graph_first::graph_types::ResizableGraph<0> result_graph;
+  result_graph.resize(N);
+  for (auto& edge : pairs) {
+    result_graph.addEdge(edge.first, edge.second);
+  }
+  for (size_t i = 0; i != N - 1; ++i) {
+    result_graph.addEdge(i, i + 1);
+  }
+  return result_graph;
+}
+
 int
 main()
 {
   // degreesCheck();
-  secondPart();
-  return 0;
+  //  secondPart();
   std::mt19937 gen(static_cast<uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count()));
-  std::array<std::array<size_t, 10>, 10> mtx;
-  auto graph1 = generateGraph<10>(25, gen, mtx);
 
-  std::vector<size_t> colours;
+  std::array<uint8_t, 15> rna_types{};
+
+  generateRNK(gen, rna_types);
+  std::println("{}", rna_types);
+  auto graph1 = nussinov(rna_types);
+
   if constexpr (kRenderOn) {
     GLFWwindow* window = nullptr;
     if (glfwInit() == 0) {
@@ -705,7 +797,7 @@ main()
 
     renderer.use(visual::ShaderTypes::Circle);
 
-    renderGraph(renderer, graph1);
+    renderGraph(renderer, graph1, rna_types);
 
     math::vec2F resolution = {static_cast<float>(w), static_cast<float>(h)};
 
