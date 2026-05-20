@@ -1071,34 +1071,34 @@ namespace graph_first {
 
       return result_matrix;
     }
-    DegreeMatrix
-    getDegreeMatrix() const
-    {
-      std::set<size_t> vertexes;
-      std::ranges::for_each(_matrix, [&vertexes](auto& edges) {
-        vertexes.insert(edges._startNode);
-        vertexes.insert(edges._endNode);
-      });
+    /* DegreeMatrix
+     getDegreeMatrix() const
+     {
+       std::set<size_t> vertexes;
+       std::ranges::for_each(_matrix, [&vertexes](auto& edges) {
+         vertexes.insert(edges._startNode);
+         vertexes.insert(edges._endNode);
+       });
 
-      size_t i_size = vertexes.size();
+       size_t i_size = vertexes.size();
 
-      DegreeMatrix result_matrix{};
-      if constexpr (kResizable) {
-        result_matrix.resize(i_size);
-      }
-      for (auto& edge : _matrix) {
-        if constexpr (kResizable) {
-          result_matrix[edge._startNode].resize(i_size);
-          result_matrix[edge._endNode].resize(i_size);
-        }
+       DegreeMatrix result_matrix{};
+       if constexpr (kResizable) {
+         result_matrix.resize(i_size);
+       }
+       for (auto& edge : _matrix) {
+         if constexpr (kResizable) {
+           result_matrix[edge._startNode].resize(i_size);
+           result_matrix[edge._endNode].resize(i_size);
+         }
 
-        result_matrix[edge._startNode][edge._startNode] += 1;
-        result_matrix[edge._endNode][edge._endNode]     += 1;
-      }
+         result_matrix[edge._startNode][edge._startNode] += 1;
+         result_matrix[edge._endNode][edge._endNode]     += 1;
+       }
 
-      return result_matrix;
-    }
-    /*
+       return result_matrix;
+     }
+     */
     DegreeMatrix
     getDegreeMatrix() const
     {
@@ -1119,7 +1119,7 @@ namespace graph_first {
       }
 
       return result_matrix;
-    }*/
+    }
     ReachabilityMatrix
     getReachabilityMatrix() const
     {

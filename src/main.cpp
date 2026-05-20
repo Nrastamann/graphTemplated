@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <fstream>
 #include <print>
 #include <random>
 
@@ -16,6 +18,7 @@
 #include <GLFW/glfw3.h>
 #include "GraphVisualisation.hpp"
 #include "graph.hpp"
+#include "graph_generation.hpp"
 #include "linear_algrebra.hpp"
 
 using return_type = std::expected<uint32_t, bool>;
@@ -440,9 +443,9 @@ generateEdges3()
 
   return matrix;
 }
-static graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
-                          graph_first::graph_flags::kOriented, uint8_t,
-                          graph_first::EdgesListTag>
+graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
+                   graph_first::graph_flags::kOriented, uint8_t,
+                   graph_first::EdgesListTag>
 generateEdges4(std::span<std::array<uint8_t, 10>> arr)
 {
   graph_first::Graph<graph_first::graph_types::kNodeAmountResizable,
@@ -461,7 +464,7 @@ generateEdges4(std::span<std::array<uint8_t, 10>> arr)
   return matrix;
 }
 
-static std::array<std::array<uint8_t, 10>, 10>
+std::array<std::array<uint8_t, 10>, 10>
 getRaw()
 {
   return {
@@ -480,7 +483,7 @@ getRaw()
   };
 }
 
-static void
+void
 pathesSorted()
 {
   auto graph1  = generateEdges3();
@@ -543,42 +546,128 @@ pathesSorted()
     std::println("Path with all different colours is not found");
   }
 }
+void
+degreesCheck()
+{
+  std::mt19937 gen(static_cast<uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+  uint8_t percent = 0;
+  std::array<std::array<size_t, 10>, 10> mtx{};
+  while (percent != 105) {
+    std::unordered_map<size_t, size_t> degrees;
+    auto result = generateGraph<10>(percent, gen, mtx).getDegreeMatrix();
+    for (size_t i = 0; i < result.size(); ++i) {
+      degrees[result[i][i]]++;
+    }
+    for (size_t i = 0; i < 10; ++i) {
+      if (degrees.contains(i)) {
+      }
+      //   }
+      //    std::cout << "\n";
+      percent += 5;
+    }
+  }
+}
+
+static bool
+bfs(const std::array<std::array<size_t, 10>, 10>& _matrix)
+{
+  std::queue<size_t> q;
+
+  constexpr size_t kDummyValue = 65535;
+  size_t start{};
+  for (const auto& i : _matrix) {
+    if (i[0] != kDummyValue) {
+      q.push(start * 10);
+    }
+    start++;
+  }
+
+  if (q.empty()) {
+    return false;
+  }
+
+  start *= 10;
+
+  std::array<std::array<bool, 10>, 10> visited{};
+
+  while (!q.empty()) {
+    size_t current = q.front();
+    q.pop();
+
+    size_t r      = current / 10;
+    size_t c      = current % 10;
+
+    visited[r][c] = true;
+
+    if (r > 0 && !visited[r - 1][c]) {
+      _matrix[r - 1][c] != kDummyValue ? q.push((r - 1) * 10 + c) : void();
+    }
+
+    if (r + 1 != 10 && !visited[r + 1][c]) {
+      _matrix[r + 1][c] != kDummyValue ? q.push((r + 1) * 10 + c) : void();
+    }
+    if (c + 1 != 10 && !visited[r][c + 1]) {
+      _matrix[r][c + 1] != kDummyValue ? q.push(r * 10 + c + 1) : void();
+    }
+    if (c > 0 && !visited[r][c - 1]) {
+      _matrix[r][c - 1] != kDummyValue ? q.push(r * 10 + c - 1) : void();
+    }
+  }
+
+  for (size_t i = 0; i != 10; ++i) {
+    if (visited[i][9]) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static void
+secondPart()
+{
+  std::mt19937 gen(static_cast<uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+  uint8_t percent = 0;
+  std::array<std::array<size_t, 10>, 10> mtx;
+  std::unordered_map<uint8_t, std::vector<bool>> results;
+
+  std::ofstream file("output.txt");
+  if (!file.is_open()) {
+    std::cout << "COULDN'T OPEN FILE\n";
+  }
+
+  while (percent != 105) {
+    size_t i = 0;
+    while (i++ != 10000) {
+      generateGraph<10>(percent, gen, mtx);
+      results[percent].push_back(bfs(mtx));
+    }
+
+    size_t count_true{};
+    std::ranges::for_each(results[percent],
+                          [&count_true](auto value) { count_true += value; });
+
+    file << +percent << ' ' << count_true << ' '
+         << results[percent].size() - count_true << '\n';
+    percent += 5;
+  }
+  file.close();
+}
 
 int
 main()
 {
-  /*
-      if (kHexagon) {
-        benchmark();
-        auto matrix = generateHex(6);
-        renderGraph(renderer, matrix);
+  // degreesCheck();
+  secondPart();
+  return 0;
+  std::mt19937 gen(static_cast<uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+  std::array<std::array<size_t, 10>, 10> mtx;
+  auto graph1 = generateGraph<10>(25, gen, mtx);
 
-        for (size_t i = 0; i < matrix.size(); ++i) {
-          renderer.setPosition(i, {i / 4 * 80.F + 960.F, i % 4 * 80.F +
-      540.F}); renderer.updateEdge(i);
-        }
-      }
-      else {
-      }*/
-  pathesSorted();
-  auto raw           = getRaw();
-  auto graph1        = generateEdges4(raw);
-
-  auto degree_matrix = graph1.getDegreeMatrix();
-  for (size_t i = 0; i < degree_matrix.size(); ++i) {
-    std::cout << +degree_matrix[i][i] << ' ';
-  }
-
-  for (size_t i = 0; i < degree_matrix.size(); ++i) {
-    auto neighbours = graph1.getNeighbours(i);
-    std::println("\n{} - {}", i, neighbours);
-  }
-
-  std::cout << '\n';
-  // auto colours = graph1.colorEdges();
-  auto colours = graph1.colorVertexes(degree_matrix);
-  std::println("colours - {}", colours);
-
+  std::vector<size_t> colours;
   if constexpr (kRenderOn) {
     GLFWwindow* window = nullptr;
     if (glfwInit() == 0) {
@@ -616,7 +705,7 @@ main()
 
     renderer.use(visual::ShaderTypes::Circle);
 
-    renderGraphVertexesColoured(renderer, graph1, colours);
+    renderGraph(renderer, graph1);
 
     math::vec2F resolution = {static_cast<float>(w), static_cast<float>(h)};
 
